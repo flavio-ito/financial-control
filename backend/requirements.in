@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+SQLAlchemy
+alembic
+pydantic
+platformdirs
+filelock
+python-multipart
+pytest
+httpx
+PyInstaller
+

@@ -16,6 +16,7 @@ Data da validação mais recente: 2026-09-10. Nenhuma etapa foi promovida com te
 ## Suítes finais
 
 - Backend: `65 passed` no pipeline final.
+- Backend validado também no Python 3.12.10.
 - Frontend: `14 passed` em 3 arquivos.
 - TypeScript estrito: aprovado sem erros.
 - Dependências JavaScript: `npm audit` sem vulnerabilidades após atualização.

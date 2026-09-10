@@ -11,5 +11,5 @@
 - Previews sensíveis carregam revisão; confirmações obsoletas não aplicam mutação. Idempotência persistente protege reenvios inclusive após reinício.
 - Entidades com histórico são arquivadas, não apagadas. Correções e reversões preservam rastreabilidade.
 - Distribuição Windows `onedir` foi escolhida para startup e diagnóstico mais previsíveis; o pacote é autocontido.
-- Python 3.7 foi mantido apenas por restrição do ambiente de build inicial; a migração para versão suportada é a prioridade técnica pós-MVP.
+- Python 3.12 é a versão de referência do desenvolvimento, da integração contínua e do empacotamento Windows.
 - Licença do código: MIT. Redistribuição deve preservar avisos das dependências, em especial a exceção de bootloader do PyInstaller.

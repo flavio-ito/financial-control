@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from contextlib import closing
 import json
 import sqlite3
 import zipfile
@@ -21,7 +22,7 @@ def add_account(database, name):
 
 
 def assert_database_healthy(path: Path):
-    with sqlite3.connect(str(path)) as connection:
+    with closing(sqlite3.connect(str(path))) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 

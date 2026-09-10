@@ -1,5 +1,11 @@
 # Changelog
 
+## Não lançado
+
+- Ambiente de desenvolvimento, CI e empacotamento atualizado do Python 3.7 para o Python 3.12.
+- Dependências de runtime e empacotamento atualizadas para compatibilidade com Python 3.12.
+- Conexões SQLite do fluxo de backup passam a ser fechadas explicitamente, evitando bloqueios de arquivo no Windows.
+
 ## 0.1.0 — MVP concluído (2026-09-09)
 
 ### Etapa 1 — Fundação local

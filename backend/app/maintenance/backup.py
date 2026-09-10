@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Callable, Dict, Optional
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -34,14 +35,14 @@ class ValidatedBackup:
 
 
 def database_revision(database_path: Path) -> str:
-    with sqlite3.connect(str(database_path)) as connection:
+    with closing(sqlite3.connect(str(database_path))) as connection:
         row = connection.execute("SELECT version_num FROM alembic_version").fetchone()
         return str(row[0]) if row else "base"
 
 
 def sqlite_snapshot(database_path: Path, destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(str(database_path)) as source, sqlite3.connect(str(destination)) as target:
+    with closing(sqlite3.connect(str(database_path))) as source, closing(sqlite3.connect(str(destination))) as target:
         source.backup(target)
     return destination
 
@@ -85,23 +86,24 @@ def create_finbackup(database_path: Path, destination: Path, app_version: str = 
 
 def _record_backup_success(database_path: Path, destination_name: str, manifest: Dict[str, object]) -> None:
     """Record only promoted/validated backups; old schemas may not have the table yet."""
-    with sqlite3.connect(str(database_path)) as connection:
-        exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backup_runs'").fetchone()
-        if not exists:
-            return
-        connection.execute(
-            "INSERT INTO backup_runs(id,created_at,destination,status,checksum,app_version,alembic_revision,backup_format_version,error_message) VALUES (?,?,?,?,?,?,?,?,NULL)",
-            (
-                str(uuid.uuid4()),
-                datetime.now(timezone.utc).isoformat(),
-                destination_name,
-                "succeeded",
-                manifest["database_sha256"],
-                manifest["app_version"],
-                manifest["alembic_revision"],
-                manifest["backup_format_version"],
-            ),
-        )
+    with closing(sqlite3.connect(str(database_path))) as connection:
+        with connection:
+            exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backup_runs'").fetchone()
+            if not exists:
+                return
+            connection.execute(
+                "INSERT INTO backup_runs(id,created_at,destination,status,checksum,app_version,alembic_revision,backup_format_version,error_message) VALUES (?,?,?,?,?,?,?,?,NULL)",
+                (
+                    str(uuid.uuid4()),
+                    datetime.now(timezone.utc).isoformat(),
+                    destination_name,
+                    "succeeded",
+                    manifest["database_sha256"],
+                    manifest["app_version"],
+                    manifest["alembic_revision"],
+                    manifest["backup_format_version"],
+                ),
+            )
 
 
 def validate_finbackup(path: Path, expected_revision: Optional[str] = None) -> ValidatedBackup:
@@ -130,7 +132,7 @@ def validate_finbackup(path: Path, expected_revision: Optional[str] = None) -> V
 
 def verify_database(database_path: Path, expected_revision: str) -> None:
     try:
-        with sqlite3.connect(str(database_path)) as connection:
+        with closing(sqlite3.connect(str(database_path))) as connection:
             connection.execute("PRAGMA foreign_keys=ON")
             integrity = connection.execute("PRAGMA integrity_check").fetchone()
             foreign_errors = connection.execute("PRAGMA foreign_key_check").fetchall()

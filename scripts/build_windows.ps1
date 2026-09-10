@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$python = Join-Path $repo '.venv\Scripts\python.exe'
+$python = if ($env:FINANCAS_PYTHON) { $env:FINANCAS_PYTHON } else { Join-Path $repo '.venv\Scripts\python.exe' }
 $frontend = Join-Path $repo 'frontend'
 $spec = Join-Path $repo 'packaging\windows\ControleFinanceiroLocal.spec'
 $work = Join-Path $repo 'build\pyinstaller'

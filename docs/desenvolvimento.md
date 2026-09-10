@@ -13,7 +13,7 @@ Dinheiro atravessa a API em centavos inteiros no intervalo seguro do JavaScript.
 
 ## Ambiente
 
-O build validado usa Python 3.7.8 por limitação do ambiente atual, Node.js 22 e npm 10. As dependências Python estão fixadas em `requirements.lock`; Python 3.7 está fora de suporte e deve ser atualizado antes de evolução prolongada do produto.
+O build validado usa Python 3.12, Node.js 22 e npm 10. As dependências Python estão fixadas em `requirements.lock`.
 
 ```powershell
 python -m venv .venv
@@ -40,6 +40,8 @@ $env:PYTHONPATH = "$PWD\backend"
 ```
 
 `FINANCAS_DATA_DIR` seleciona uma pasta de dados isolada para desenvolvimento/testes. `FINANCAS_NO_BROWSER=1` impede a abertura automática do navegador. O launcher vincula apenas `127.0.0.1` em porta dinâmica e grava em `runtime.json` somente PID e porta.
+
+Os scripts usam `.venv\Scripts\python.exe` por padrão. Para validar com outro ambiente sem substituir o `.venv` existente, defina `FINANCAS_PYTHON` com o caminho absoluto do interpretador.
 
 ## API, banco e pacote
 

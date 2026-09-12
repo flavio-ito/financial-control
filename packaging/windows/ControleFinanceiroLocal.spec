@@ -44,6 +44,7 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
+    contents_directory=".",
 )
 coll = COLLECT(
     exe,

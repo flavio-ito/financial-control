@@ -22,7 +22,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps
 
 O segundo comando gera OpenAPI/tipos, executa backend, frontend e tipagem, compila a SPA, empacota, roda o autoteste do binário e cria o ZIP somente se tudo passar.
 
-Detalhes: [desenvolvimento](docs/desenvolvimento.md), [guia do usuário](docs/guia-usuario.md), [critérios de aceite](docs/criterios-aceite.md), [migração e recuperação](docs/migracao-recuperacao.md) e [registro de testes](docs/registro-testes.md).
+Detalhes: [desenvolvimento](docs/desenvolvimento.md), [arquitetura](docs/arquitetura.md), [modelo de dados](docs/modelo-dados.md), [guia do usuário](docs/guia-usuario.md), [critérios de aceite](docs/criterios-aceite.md), [migração e recuperação](docs/migracao-recuperacao.md) e [registro de testes](docs/registro-testes.md).
+
+Para manutenção e colaboração, consulte [CONTRIBUTING.md](CONTRIBUTING.md) e [SECURITY.md](SECURITY.md).
 
 ## Limites deliberados do MVP
 

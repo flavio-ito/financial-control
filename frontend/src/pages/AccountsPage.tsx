@@ -1,58 +1,102 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { ApiError, apiFetch, idempotencyHeaders } from "../api/client";
-import type { Account } from "../api/types";
+import { apiFetch } from "../api/client";
+import type { Account, Card } from "../api/types";
 import { AsyncState } from "../components/AsyncState";
 import { MoneyField } from "../components/MoneyField";
 import { Page } from "../components/Page";
-import { useAccounts } from "../hooks/useFinanceData";
-import { formatDateBr } from "../lib/dates";
+import { useAccounts, useCards } from "../hooks/useFinanceData";
 import { moneyText, requiredText, todayIso } from "../lib/forms";
 import { formatBrl } from "../lib/money";
 
 const accountSchema = z.object({ name: requiredText, institution: z.string(), balance: moneyText, referenceDate: z.string() });
-const transferSchema = z.object({ from: requiredText, to: requiredText, amount: moneyText, date: z.string() }).refine((v) => v.from !== v.to, { message: "Escolha contas diferentes.", path: ["to"] });
-const referenceSchema = z.object({ accountId: requiredText, balance: moneyText, date: z.string(), reason: requiredText });
-type TransferPreview = { preview_token: string; amount_minor: number; source_balance_after_minor: number; target_balance_after_minor: number; consolidated_change_minor: number };
-type ReferencePreview = { preview_token: string; current_balance_before_minor: number; current_balance_after_minor: number; difference_minor: number; covered_movement_count: number };
+const cardSchema = z.object({ name: requiredText, accountId: requiredText, spent: moneyText });
+type CardFormValues = z.input<typeof cardSchema>;
+const emptyCard: CardFormValues = { name: "", accountId: "", spent: "" };
+
+function CardsSection() {
+  const cards = useCards();
+  const accounts = useAccounts();
+  const queryClient = useQueryClient();
+  const [registeringCard, setRegisteringCard] = useState(false);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const form = useForm<CardFormValues>({ resolver: zodResolver(cardSchema), defaultValues: emptyCard });
+
+  useEffect(() => {
+    if (!editingCard) {
+      form.reset(emptyCard);
+      return;
+    }
+    form.reset({
+      name: editingCard.name,
+      accountId: editingCard.default_account_id ?? "",
+      spent: (editingCard.limit_minor / 100).toFixed(2).replace(".", ","),
+    });
+  }, [editingCard, form]);
+
+  const saveCard = useMutation({
+    mutationFn: (values: z.output<typeof cardSchema>) => editingCard
+      ? apiFetch(`/api/v1/cards/${editingCard.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ name: values.name, default_account_id: values.accountId, limit_minor: values.spent, expected_revision: editingCard.revision }),
+        })
+      : apiFetch("/api/v1/cards", {
+          method: "POST",
+          body: JSON.stringify({ name: values.name, default_account_id: values.accountId, limit_minor: values.spent, closing_day: 1, due_day: 1 }),
+        }),
+    onSuccess: () => {
+      setEditingCard(null);
+      setRegisteringCard(false);
+      form.reset(emptyCard);
+      void queryClient.invalidateQueries({ queryKey: ["cards"] });
+    },
+  });
+
+  const bankName = (card: Card) => {
+    const account = accounts.data?.items.find((item) => item.id === card.default_account_id);
+    return account?.institution || account?.name || "Banco não informado";
+  };
+
+  return <>
+    <section className="panel wide investments-panel cards-panel">
+      <div className="panel-heading"><h2>Cartões</h2></div>
+      <AsyncState loading={cards.isPending || accounts.isPending} error={cards.isError || accounts.isError} empty={!cards.data?.items.length}>
+        <div className="account-cards investment-cards account-balance-cards">{cards.data?.items.map((card) => <article key={card.id}>
+          <strong>{formatBrl(card.limit_minor)}</strong><h3>{card.name} · {bankName(card)}</h3><button type="button" className="movement-edit-button" aria-label={`Editar cartão ${card.name}`} title="Editar cartão" onClick={() => setEditingCard(card)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        </article>)}</div>
+      </AsyncState>
+      <div className="investment-panel-action"><button className="primary overview-new-transaction" type="button" onClick={() => setRegisteringCard(true)}><span aria-hidden="true">＋</span> Novo Cartão</button></div>
+    </section>
+    {(registeringCard || editingCard) && <div className="modal-backdrop"><form className="modal form-panel investment-modal transaction-modal" role="dialog" aria-modal="true" aria-labelledby="card-form-title" onSubmit={form.handleSubmit((values) => saveCard.mutate(cardSchema.parse(values)))}>
+        <h2 id="card-form-title">{editingCard ? "Editar cartão" : "Novo cartão"}</h2>
+        <label className="field"><span>Nome do cartão</span><input {...form.register("name")} />{form.formState.errors.name && <small className="field-error">{form.formState.errors.name.message}</small>}</label>
+        <label className="field"><span>Banco</span><select {...form.register("accountId")}><option value="">Selecione um banco</option>{accounts.data?.items.map((account) => <option key={account.id} value={account.id}>{account.institution || account.name}</option>)}</select>{form.formState.errors.accountId && <small className="field-error">Selecione um banco.</small>}</label>
+        <MoneyField label="Valor gasto" registration={form.register("spent")} error={form.formState.errors.spent} />
+        {saveCard.isError && <p className="field-error" role="alert">Não foi possível salvar o cartão.</p>}
+        <div className="modal-actions"><button type="button" className="ghost overview-new-transaction" onClick={() => { setEditingCard(null); setRegisteringCard(false); }}>Cancelar</button><button className="primary overview-new-transaction" disabled={saveCard.isPending}>{editingCard ? "Salvar alterações" : "Salvar"}</button></div>
+      </form></div>}
+  </>;
+}
 
 export function AccountsPage() {
   const accounts = useAccounts();
   const queryClient = useQueryClient();
-  const [preview, setPreview] = useState<{ input: z.output<typeof transferSchema>; result: TransferPreview } | null>(null);
+  const [registeringAccount, setRegisteringAccount] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
   const [editName, setEditName] = useState("");
-  const [referencePreview, setReferencePreview] = useState<{ input: z.output<typeof referenceSchema>; result: ReferencePreview } | null>(null);
   const accountForm = useForm<z.input<typeof accountSchema>>({ resolver: zodResolver(accountSchema), defaultValues: { name: "", institution: "", balance: "0,00", referenceDate: todayIso() } });
-  const transferForm = useForm<z.input<typeof transferSchema>>({ resolver: zodResolver(transferSchema), defaultValues: { from: "", to: "", amount: "", date: todayIso() } });
-  const referenceForm = useForm<z.input<typeof referenceSchema>>({ resolver: zodResolver(referenceSchema), defaultValues: { accountId: "", balance: "", date: todayIso(), reason: "" } });
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ["accounts"] }); void queryClient.invalidateQueries({ queryKey: ["monthly"] }); };
-  const add = useMutation({ mutationFn: (v: z.output<typeof accountSchema>) => apiFetch("/api/v1/accounts", { method: "POST", body: JSON.stringify({ name: v.name, institution: v.institution || null, reference_balance_minor: v.balance, reference_date: v.referenceDate }) }), onSuccess: () => { accountForm.reset(); refresh(); } });
-  const requestTransfer = useMutation({ mutationFn: async (v: z.output<typeof transferSchema>) => ({ input: v, result: await apiFetch<TransferPreview>("/api/v1/transfers/preview", { method: "POST", body: JSON.stringify({ from_account_id: v.from, to_account_id: v.to, amount_minor: v.amount, planned_date: v.date, effective_date: v.date, status: "effective" }) }) }), onSuccess: setPreview });
-  const transfer = useMutation({ mutationFn: (v: NonNullable<typeof preview>) => apiFetch("/api/v1/transfers/confirm", { method: "POST", headers: idempotencyHeaders(), body: JSON.stringify({ from_account_id: v.input.from, to_account_id: v.input.to, amount_minor: v.input.amount, planned_date: v.input.date, effective_date: v.input.date, status: "effective", preview_token: v.result.preview_token }) }), onSuccess: () => { setPreview(null); transferForm.reset(); refresh(); }, onError: (error) => { if (error instanceof ApiError && error.code === "STALE_PREVIEW" && error.detail?.preview) setPreview((current) => current ? { input: current.input, result: error.detail?.preview as TransferPreview } : null); } });
+  const add = useMutation({ mutationFn: (v: z.output<typeof accountSchema>) => apiFetch("/api/v1/accounts", { method: "POST", body: JSON.stringify({ name: v.name, institution: v.institution || null, reference_balance_minor: v.balance, reference_date: v.referenceDate }) }), onSuccess: () => { accountForm.reset(); setRegisteringAccount(false); refresh(); } });
   const rename = useMutation({ mutationFn: (account: Account) => apiFetch(`/api/v1/accounts/${account.id}`, { method: "PUT", body: JSON.stringify({ name: editName, institution: account.institution, expected_revision: account.revision }) }), onSuccess: () => { setEditing(null); refresh(); } });
   const archive = useMutation({ mutationFn: (account: Account) => apiFetch(`/api/v1/accounts/${account.id}/archive`, { method: "POST", body: JSON.stringify({ expected_revision: account.revision, reason: "Arquivada pelo usuário" }) }), onSuccess: refresh });
-  const requestReference = useMutation({ mutationFn: async (input: z.output<typeof referenceSchema>) => {
-    const account = accounts.data?.items.find((item) => item.id === input.accountId);
-    if (!account) throw new Error("Conta não encontrada.");
-    return { input, result: await apiFetch<ReferencePreview>(`/api/v1/accounts/${account.id}/reference/preview`, { method: "POST", body: JSON.stringify({ reference_date: input.date, reference_balance_minor: input.balance, expected_revision: account.revision, reason: input.reason }) }) };
-  }, onSuccess: setReferencePreview });
-  const confirmReference = useMutation({ mutationFn: ({ input, result }: NonNullable<typeof referencePreview>) => {
-    const account = accounts.data?.items.find((item) => item.id === input.accountId);
-    if (!account) throw new Error("Conta não encontrada.");
-    return apiFetch(`/api/v1/accounts/${account.id}/reference`, { method: "POST", body: JSON.stringify({ reference_date: input.date, reference_balance_minor: input.balance, expected_revision: account.revision, reason: input.reason, preview_token: result.preview_token }) });
-  }, onSuccess: () => { setReferencePreview(null); referenceForm.reset(); refresh(); }, onError: (error) => { if (error instanceof ApiError && error.code === "STALE_PREVIEW" && error.detail?.preview) setReferencePreview((current) => current ? { input: current.input, result: error.detail?.preview as ReferencePreview } : null); } });
-  return <Page eyebrow="Saldos conciliáveis" title="Contas" description="O saldo de referência representa o início da data escolhida.">
-    <div className="account-grid"><section className="panel wide"><div className="panel-heading"><h2>Saldos atuais</h2><span>Limite de cartão não incluído</span></div><AsyncState loading={accounts.isPending} error={accounts.isError} empty={accounts.data?.total === 0}><div className="account-cards">{accounts.data?.items.map((account) => <article key={account.id}><small>{account.institution || "Conta"}</small><h3>{account.name}</h3><strong>{formatBrl(account.current_balance_minor)}</strong><p>Referência {formatDateBr(account.reference_date)}: {formatBrl(account.reference_balance_minor)}</p><div className="button-row"><button className="text-button" onClick={() => { setEditing(account); setEditName(account.name); }}>Renomear</button><button className="text-button danger-text" onClick={() => { if (window.confirm(`Arquivar ${account.name}? O histórico e as obrigações continuarão visíveis.`)) archive.mutate(account); }}>Arquivar</button></div></article>)}</div></AsyncState></section>
-      <form className="panel form-panel" onSubmit={accountForm.handleSubmit((v) => add.mutate(accountSchema.parse(v)))}><h2>Nova conta</h2><label className="field"><span>Nome</span><input {...accountForm.register("name")} /></label><label className="field"><span>Instituição</span><input {...accountForm.register("institution")} /></label><MoneyField label="Saldo inicial da data" registration={accountForm.register("balance")} error={accountForm.formState.errors.balance} /><label className="field"><span>Data de referência</span><input type="date" {...accountForm.register("referenceDate")} /></label><p className="hint">Movimentos efetivados nesta data serão aplicados ao saldo.</p><button className="primary">Adicionar conta</button></form>
-      <form className="panel form-panel" onSubmit={transferForm.handleSubmit((v) => requestTransfer.mutate(transferSchema.parse(v)))}><h2>Transferir</h2><label className="field"><span>Origem</span><select {...transferForm.register("from")}><option value="">Selecione</option>{accounts.data?.items.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label className="field"><span>Destino</span><select {...transferForm.register("to")}><option value="">Selecione</option>{accounts.data?.items.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label><MoneyField label="Valor" registration={transferForm.register("amount")} error={transferForm.formState.errors.amount} /><label className="field"><span>Data</span><input type="date" {...transferForm.register("date")} /></label><button className="secondary">Revisar transferência</button></form>
+  return <Page title="Contas e cartões">
+    <div className="account-grid"><section className="panel wide investments-panel"><div className="panel-heading"><h2>Contas</h2></div><AsyncState loading={accounts.isPending} error={accounts.isError} empty={accounts.data?.total === 0}><div className="account-cards investment-cards account-balance-cards">{accounts.data?.items.map((account) => <article key={account.id}><strong>{formatBrl(account.current_balance_minor)}</strong><h3>{account.institution || account.name}</h3><button type="button" className="movement-edit-button" aria-label={`Editar conta ${account.name}`} title="Editar conta" onClick={() => { setEditing(account); setEditName(account.name); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></article>)}</div></AsyncState><div className="investment-panel-action"><button className="primary overview-new-transaction" type="button" onClick={() => setRegisteringAccount(true)}><span aria-hidden="true">＋</span> Nova Conta</button></div></section>
     </div>
-    <details className="panel compact"><summary>Corrigir saldo/data de referência</summary><form className="inline-form" onSubmit={referenceForm.handleSubmit((value) => requestReference.mutate(referenceSchema.parse(value)))}><label className="field"><span>Conta</span><select {...referenceForm.register("accountId")}><option value="">Selecione</option>{accounts.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><MoneyField label="Novo saldo de referência" registration={referenceForm.register("balance")} error={referenceForm.formState.errors.balance} /><label className="field"><span>Nova data de referência</span><input type="date" {...referenceForm.register("date")} /></label><label className="field"><span>Justificativa</span><input {...referenceForm.register("reason")} /></label><button className="secondary">Revisar efeito</button></form></details>
-    {preview && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true"><h2>Confirmar transferência</h2><p>Valor: <strong>{formatBrl(preview.result.amount_minor)}</strong></p><p>Saldo da origem após: {formatBrl(preview.result.source_balance_after_minor)} · saldo do destino após: {formatBrl(preview.result.target_balance_after_minor)}.</p><p>Variação consolidada: {formatBrl(preview.result.consolidated_change_minor)}. Não é receita nem despesa.</p><div className="modal-actions"><button className="ghost" onClick={() => setPreview(null)}>Voltar</button><button className="primary" onClick={() => transfer.mutate(preview)}>Confirmar gravação atômica</button></div></section></div>}
-    {editing && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true"><h2>Renomear conta</h2><label className="field"><span>Novo nome</span><input value={editName} onChange={(event) => setEditName(event.target.value)} /></label><div className="modal-actions"><button className="ghost" onClick={() => setEditing(null)}>Cancelar</button><button className="primary" disabled={!editName.trim()} onClick={() => rename.mutate(editing)}>Salvar correção</button></div></section></div>}
-    {referencePreview && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true"><h2>Confirmar nova referência</h2><p>Saldo atual calculado: {formatBrl(referencePreview.result.current_balance_before_minor)}. Após a correção: {formatBrl(referencePreview.result.current_balance_after_minor)}.</p><p>Diferença: {formatBrl(referencePreview.result.difference_minor)} · {referencePreview.result.covered_movement_count} movimento(s) desta data em diante serão somados. A alteração ficará auditada.</p><div className="modal-actions"><button className="ghost" onClick={() => setReferencePreview(null)}>Voltar</button><button className="primary" onClick={() => confirmReference.mutate(referencePreview)}>Confirmar correção</button></div></section></div>}
+    <CardsSection />
+    {registeringAccount && <div className="modal-backdrop"><form className="modal form-panel investment-modal transaction-modal" role="dialog" aria-modal="true" aria-labelledby="new-account-title" onSubmit={accountForm.handleSubmit((v) => add.mutate(accountSchema.parse(v)))}><h2 id="new-account-title">Nova conta</h2><label className="field"><span>Nome</span><input {...accountForm.register("name")} /></label><label className="field"><span>Instituição</span><input {...accountForm.register("institution")} /></label><MoneyField label="Saldo inicial da data" registration={accountForm.register("balance")} error={accountForm.formState.errors.balance} /><label className="field"><span>Data de referência</span><input type="date" {...accountForm.register("referenceDate")} /></label><div className="modal-actions"><button type="button" className="ghost overview-new-transaction" onClick={() => setRegisteringAccount(false)}>Cancelar</button><button className="primary overview-new-transaction" disabled={add.isPending}>{add.isPending ? "Salvando…" : "Salvar"}</button></div></form></div>}
+    {editing && <div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true"><h2>Editar conta</h2><label className="field"><span>Nome</span><input value={editName} onChange={(event) => setEditName(event.target.value)} /></label><div className="modal-actions"><button className="danger" onClick={() => { if (window.confirm(`Arquivar ${editing.name}? O histórico e as obrigações continuarão visíveis.`)) { archive.mutate(editing); setEditing(null); } }}>Arquivar</button><button className="ghost" onClick={() => setEditing(null)}>Cancelar</button><button className="primary" disabled={!editName.trim()} onClick={() => rename.mutate(editing)}>Salvar</button></div></section></div>}
   </Page>;
 }

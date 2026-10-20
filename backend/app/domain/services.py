@@ -17,7 +17,7 @@ from app.domain.calculations import (
     validate_minor,
 )
 from app.domain.states import ensure_transition
-from app.storage.financial_repository import confirm_planned_purchase, save_purchase_with_installments, save_transfer
+from app.storage.financial_repository import save_purchase_with_installments, save_transfer
 from app.storage.models import (
     Account,
     AuditEvent,
@@ -27,9 +27,7 @@ from app.storage.models import (
     Installment,
     Invoice,
     InvoiceAdjustment,
-    InvoicePaymentPlan,
     Payment,
-    PlannedCardPurchase,
     Purchase,
     Refund,
     RecurrenceOccurrence,
@@ -41,9 +39,9 @@ from app.storage.models import (
 def require_active(session: Session, model, entity_id: str, label: str):
     entity = session.query(model).filter(model.id == entity_id).one_or_none()
     if entity is None:
-        raise DomainValidationError("{} não encontrado(a).".format(label))
+        raise DomainValidationError("{} nÃ£o encontrado(a).".format(label))
     if hasattr(entity, "archived_at") and entity.archived_at is not None:
-        raise DomainValidationError("{} está arquivado(a) e não aceita novos vínculos.".format(label))
+        raise DomainValidationError("{} estÃ¡ arquivado(a) e nÃ£o aceita novos vÃ­nculos.".format(label))
     return entity
 
 
@@ -92,18 +90,16 @@ def create_cash_entry(
     validate_minor(amount_minor)
     require_active(session, Account, account_id, "Conta")
     if kind not in ("income", "expense", "balance_adjustment"):
-        raise DomainValidationError("Tipo de movimentação manual inválido.")
+        raise DomainValidationError("Tipo de movimentaÃ§Ã£o manual invÃ¡lido.")
     if category_id:
-        category = require_active(session, Category, category_id, "Categoria")
-        if kind in ("income", "expense") and category.kind != kind:
-            raise DomainValidationError("Categoria incompatível com o tipo da movimentação.")
+        require_active(session, Category, category_id, "Categoria")
     if status not in ("planned", "effective"):
-        raise DomainValidationError("Estado inicial inválido.")
+        raise DomainValidationError("Estado inicial invÃ¡lido.")
     if status == "effective":
         if effective_date is None:
-            raise DomainValidationError("Data efetiva é obrigatória.")
+            raise DomainValidationError("Data efetiva Ã© obrigatÃ³ria.")
         if effective_date > today:
-            raise DomainValidationError("Movimentação não pode ser efetivada no futuro.")
+            raise DomainValidationError("MovimentaÃ§Ã£o nÃ£o pode ser efetivada no futuro.")
     signed = amount_minor if kind in ("income", "balance_adjustment") else -amount_minor
     entry = CashEntry(
         account_id=account_id,
@@ -126,15 +122,15 @@ def create_cash_entry(
 def transition_cash_entry(session: Session, entry_id: str, transition: str, expected_revision: int, today: date, effective_date: Optional[date] = None, reason: Optional[str] = None):
     entry = session.query(CashEntry).filter(CashEntry.id == entry_id).one_or_none()
     if entry is None:
-        raise DomainValidationError("Movimentação não encontrada.")
+        raise DomainValidationError("MovimentaÃ§Ã£o nÃ£o encontrada.")
     ensure_revision(entry, expected_revision)
     ensure_transition("cash_entries", entry.status, transition)
     if transition in ("cancelled", "voided") and not reason:
-        raise DomainValidationError("Justificativa é obrigatória.")
+        raise DomainValidationError("Justificativa Ã© obrigatÃ³ria.")
     if transition == "effective":
         actual = effective_date or today
         if actual > today:
-            raise DomainValidationError("Movimentação não pode ser efetivada no futuro.")
+            raise DomainValidationError("MovimentaÃ§Ã£o nÃ£o pode ser efetivada no futuro.")
         entry.effective_date = actual
     before = {"status": entry.status, "revision": entry.revision}
     entry.status = transition
@@ -154,9 +150,9 @@ def create_transfer(session: Session, from_account_id: str, to_account_id: str, 
     source = require_active(session, Account, from_account_id, "Conta de origem")
     target = require_active(session, Account, to_account_id, "Conta de destino")
     if source.currency != target.currency:
-        raise DomainValidationError("Transferência exige contas na mesma moeda.")
+        raise DomainValidationError("TransferÃªncia exige contas na mesma moeda.")
     if status == "effective" and (effective_date is None or effective_date > today):
-        raise DomainValidationError("Data efetiva inválida.")
+        raise DomainValidationError("Data efetiva invÃ¡lida.")
     transfer = save_transfer(session, from_account_id, to_account_id, amount_minor, planned_date, status, effective_date)
     audit(session, "transfer", transfer.id, "created", after={"status": status, "amount_minor": amount_minor})
     return transfer
@@ -165,11 +161,11 @@ def create_transfer(session: Session, from_account_id: str, to_account_id: str, 
 def reverse_transfer(session: Session, transfer_id: str, expected_revision: int, reversal_date: date, today: date, reason: str) -> Transfer:
     original = session.query(Transfer).filter(Transfer.id == transfer_id).one_or_none()
     if original is None:
-        raise DomainValidationError("Transferência não encontrada.")
+        raise DomainValidationError("TransferÃªncia nÃ£o encontrada.")
     ensure_revision(original, expected_revision)
     ensure_transition("transfers", original.status, "reversed")
     if not reason or reversal_date > today:
-        raise DomainValidationError("Data/justificativa de reversão inválida.")
+        raise DomainValidationError("Data/justificativa de reversÃ£o invÃ¡lida.")
     reverse = save_transfer(session, original.to_account_id, original.from_account_id, original.amount_minor, reversal_date, "effective", reversal_date)
     reverse.reversal_of = original.id
     reverse.reason = reason
@@ -180,9 +176,9 @@ def reverse_transfer(session: Session, transfer_id: str, expected_revision: int,
 
 
 def preview_purchase(session: Session, card_id: str, purchase_date: date, total_minor: int, installment_count: int, first_invoice_month: Optional[str], today: date):
-    card = require_active(session, Card, card_id, "Cartão")
+    card = require_active(session, Card, card_id, "CartÃ£o")
     if purchase_date > today:
-        raise DomainValidationError("Compra confirmada não pode ter data futura.")
+        raise DomainValidationError("Compra confirmada nÃ£o pode ter data futura.")
     first = first_invoice_month or suggest_invoice_month(purchase_date, card.closing_day, card.due_day)
     schedule = installment_schedule(total_minor, installment_count, first, card.closing_day, card.due_day)
     return card, schedule
@@ -191,59 +187,15 @@ def preview_purchase(session: Session, card_id: str, purchase_date: date, total_
 def create_purchase(session: Session, card_id: str, description: str, purchase_date: date, total_minor: int, installment_count: int, category_id: Optional[str], first_invoice_month: Optional[str], today: date, source: str = "manual") -> Purchase:
     card, schedule = preview_purchase(session, card_id, purchase_date, total_minor, installment_count, first_invoice_month, today)
     if category_id:
-        category = require_active(session, Category, category_id, "Categoria")
-        if category.kind != "expense":
-            raise DomainValidationError("Compra exige categoria de despesa.")
+        require_active(session, Category, category_id, "Categoria")
     rows = []
     for item in schedule:
         invoice = get_or_create_invoice(session, card, item.reference_month)
         if invoice.state == "settled":
-            raise DomainValidationError("Não é possível incluir parcela em fatura liquidada.")
+            raise DomainValidationError("NÃ£o Ã© possÃ­vel incluir parcela em fatura liquidada.")
         rows.append({"installment_number": item.installment_number, "amount_minor": item.amount_minor, "invoice_id": invoice.id})
     purchase = save_purchase_with_installments(session, card.id, description.strip(), purchase_date, total_minor, category_id, source, rows)
     audit(session, "purchase", purchase.id, "created", after={"total_minor": total_minor, "installment_count": installment_count})
-    return purchase
-
-
-def create_planned_card_purchase(session: Session, card_id: str, description: str, category_id: Optional[str], expected_date: date, expected_amount_minor: int, estimated_invoice_month: Optional[str] = None):
-    card = require_active(session, Card, card_id, "Cartão")
-    validate_minor(expected_amount_minor)
-    if category_id:
-        category = require_active(session, Category, category_id, "Categoria")
-        if category.kind != "expense":
-            raise DomainValidationError("Compra planejada exige categoria de despesa.")
-    month = estimated_invoice_month or suggest_invoice_month(expected_date, card.closing_day, card.due_day)
-    get_or_create_invoice(session, card, month)
-    planned = PlannedCardPurchase(card_id=card.id, description=description.strip(), category_id=category_id, expected_date=expected_date, expected_amount_minor=expected_amount_minor, estimated_invoice_month=month, status="planned")
-    session.add(planned)
-    session.flush()
-    audit(session, "planned_card_purchase", planned.id, "created", after={"expected_amount_minor": expected_amount_minor})
-    return planned
-
-
-def confirm_planned_card_purchase(session: Session, planned_id: str, purchase_date: date, total_minor: int, installment_count: int, first_invoice_month: Optional[str], today: date) -> Purchase:
-    planned = session.query(PlannedCardPurchase).filter(PlannedCardPurchase.id == planned_id).one_or_none()
-    if planned is None or planned.status != "planned":
-        raise DomainValidationError("Previsão de compra não está disponível para confirmação.")
-    card, schedule = preview_purchase(session, planned.card_id, purchase_date, total_minor, installment_count, first_invoice_month, today)
-    rows = []
-    for item in schedule:
-        invoice = get_or_create_invoice(session, card, item.reference_month)
-        if invoice.state == "settled":
-            raise DomainValidationError("Não é possível incluir parcela em fatura liquidada.")
-        rows.append({"installment_number": item.installment_number, "amount_minor": item.amount_minor, "invoice_id": invoice.id})
-    purchase = confirm_planned_purchase(
-        session,
-        planned.id,
-        card_id=card.id,
-        description=planned.description,
-        purchase_date=purchase_date,
-        total_minor=total_minor,
-        category_id=planned.category_id,
-        source="manual",
-        installment_rows=rows,
-    )
-    audit(session, "planned_card_purchase", planned.id, "confirmed", after={"purchase_id": purchase.id})
     return purchase
 
 
@@ -256,7 +208,7 @@ def calculate_invoice(session: Session, invoice_id: str):
 def close_invoice(session: Session, invoice_id: str, expected_revision: int) -> Invoice:
     invoice = session.query(Invoice).filter(Invoice.id == invoice_id).one_or_none()
     if invoice is None:
-        raise DomainValidationError("Fatura não encontrada.")
+        raise DomainValidationError("Fatura nÃ£o encontrada.")
     ensure_revision(invoice, expected_revision)
     ensure_transition("invoices", invoice.state, "closed")
     invoice.state = "closed"
@@ -268,11 +220,11 @@ def close_invoice(session: Session, invoice_id: str, expected_revision: int) -> 
 def reopen_invoice(session: Session, invoice_id: str, expected_revision: int, reason: str) -> Invoice:
     invoice = session.query(Invoice).filter(Invoice.id == invoice_id).one_or_none()
     if invoice is None:
-        raise DomainValidationError("Fatura não encontrada.")
+        raise DomainValidationError("Fatura nÃ£o encontrada.")
     ensure_revision(invoice, expected_revision)
     ensure_transition("invoices", invoice.state, "open")
     if not reason:
-        raise DomainValidationError("Justificativa é obrigatória.")
+        raise DomainValidationError("Justificativa Ã© obrigatÃ³ria.")
     invoice.state = "open"
     invoice.revision += 1
     audit(session, "invoice", invoice.id, "reopened", reason=reason)
@@ -282,15 +234,15 @@ def reopen_invoice(session: Session, invoice_id: str, expected_revision: int, re
 def settle_invoice(session: Session, invoice_id: str, account_id: str, paid_date: date, requested_amount_minor: int, today: date) -> Payment:
     invoice = session.query(Invoice).filter(Invoice.id == invoice_id).one_or_none()
     if invoice is None:
-        raise DomainValidationError("Fatura não encontrada.")
+        raise DomainValidationError("Fatura nÃ£o encontrada.")
     if invoice.state != "closed":
-        raise DomainValidationError("Fatura deve estar fechada e não liquidada.")
+        raise DomainValidationError("Fatura deve estar fechada e nÃ£o liquidada.")
     require_active(session, Account, account_id, "Conta pagadora")
     if paid_date > today:
-        raise DomainValidationError("Pagamento não pode ocorrer no futuro.")
-    planned_count = session.query(PlannedCardPurchase).filter(PlannedCardPurchase.card_id == invoice.card_id, PlannedCardPurchase.estimated_invoice_month == invoice.reference_month, PlannedCardPurchase.status == "planned").count()
+        raise DomainValidationError("Pagamento nÃ£o pode ocorrer no futuro.")
+    planned_count = 0
     if planned_count:
-        raise DomainValidationError("Revise as previsões desta fatura antes de liquidar.")
+        raise DomainValidationError("Revise as previsÃµes desta fatura antes de liquidar.")
     total = calculate_invoice(session, invoice.id)
     if requested_amount_minor != total.payable_minor:
         raise DomainValidationError("O MVP aceita somente pagamento integral calculado.")
@@ -309,10 +261,10 @@ def settle_invoice(session: Session, invoice_id: str, account_id: str, paid_date
     if total.carry_minor:
         card = session.query(Card).filter(Card.id == invoice.card_id).one()
         next_invoice = get_or_create_invoice(session, card, add_months(invoice.reference_month, 1))
-        session.add(InvoiceAdjustment(invoice_id=next_invoice.id, signed_amount_minor=-total.carry_minor, kind="credit_carry", description="Crédito transportado", origin_invoice_id=invoice.id, status="active"))
+        session.add(InvoiceAdjustment(invoice_id=next_invoice.id, signed_amount_minor=-total.carry_minor, kind="credit_carry", description="CrÃ©dito transportado", origin_invoice_id=invoice.id, status="active"))
     invoice.state = "settled"
     invoice.revision += 1
-    plans = session.query(InvoicePaymentPlan).filter(InvoicePaymentPlan.invoice_id == invoice.id, InvoicePaymentPlan.status == "active").all()
+    plans = []
     for plan in plans:
         plan.status = "cancelled"
         plan.revision += 1
@@ -324,13 +276,13 @@ def settle_invoice(session: Session, invoice_id: str, account_id: str, paid_date
 def reverse_invoice_payment(session: Session, payment_id: str, reversal_date: date, today: date, reason: str) -> Payment:
     payment = session.query(Payment).filter(Payment.id == payment_id).one_or_none()
     if payment is None:
-        raise DomainValidationError("Pagamento não encontrado.")
+        raise DomainValidationError("Pagamento nÃ£o encontrado.")
     ensure_transition("payments", payment.status, "reversed")
     if reversal_date > today or not reason:
-        raise DomainValidationError("Data/justificativa de reversão inválida.")
+        raise DomainValidationError("Data/justificativa de reversÃ£o invÃ¡lida.")
     invoice = session.query(Invoice).filter(Invoice.id == payment.invoice_id).one()
     if payment.amount_minor:
-        session.add(CashEntry(account_id=payment.account_id, kind="invoice_payment", description="Reversão de pagamento de fatura", signed_amount_minor=payment.amount_minor, planned_date=reversal_date, effective_date=reversal_date, status="effective", reversal_of_id=payment.cash_entry_id, source="manual"))
+        session.add(CashEntry(account_id=payment.account_id, kind="invoice_payment", description="ReversÃ£o de pagamento de fatura", signed_amount_minor=payment.amount_minor, planned_date=reversal_date, effective_date=reversal_date, status="effective", reversal_of_id=payment.cash_entry_id, source="manual"))
     payment.status = "reversed"
     payment.revision += 1
     invoice.state = "closed"
@@ -342,25 +294,25 @@ def reverse_invoice_payment(session: Session, payment_id: str, reversal_date: da
 def register_refund(session: Session, purchase_id: str, amount_minor: int, status: str, planned_date: date, target_kind: str, target_id: str, reason: str, recognition_date: Optional[date], today: date) -> Refund:
     purchase = session.query(Purchase).filter(Purchase.id == purchase_id).one_or_none()
     if purchase is None:
-        raise DomainValidationError("Compra não encontrada.")
+        raise DomainValidationError("Compra nÃ£o encontrada.")
     validate_minor(amount_minor)
     cancelled = session.query(func.coalesce(func.sum(Installment.amount_minor), 0)).filter(Installment.purchase_id == purchase.id, Installment.status == "cancelled").scalar()
     refunded = session.query(func.coalesce(func.sum(Refund.amount_minor), 0)).filter(Refund.purchase_id == purchase.id, Refund.status.in_(("planned", "confirmed"))).scalar()
     if amount_minor + cancelled + refunded > purchase.total_minor:
-        raise DomainValidationError("Estorno/cancelamento excede o valor elegível da compra.")
+        raise DomainValidationError("Estorno/cancelamento excede o valor elegÃ­vel da compra.")
     if status == "confirmed" and (recognition_date is None or recognition_date > today):
-        raise DomainValidationError("Estorno confirmado exige data efetiva válida.")
+        raise DomainValidationError("Estorno confirmado exige data efetiva vÃ¡lida.")
     values = {"purchase_id": purchase.id, "amount_minor": amount_minor, "status": status, "planned_date": planned_date, "recognition_date": recognition_date, "target_kind": target_kind, "reason": reason}
     if target_kind == "invoice":
         invoice = session.query(Invoice).filter(Invoice.id == target_id).one_or_none()
         if invoice is None or invoice.state == "settled" or invoice.card_id != purchase.card_id:
-            raise DomainValidationError("Estorno deve ser reconhecido em fatura não liquidada do mesmo cartão.")
+            raise DomainValidationError("Estorno deve ser reconhecido em fatura nÃ£o liquidada do mesmo cartÃ£o.")
         values["target_invoice_id"] = invoice.id
     elif target_kind == "account":
         require_active(session, Account, target_id, "Conta de reembolso")
         values["target_account_id"] = target_id
     else:
-        raise DomainValidationError("Destino de estorno inválido.")
+        raise DomainValidationError("Destino de estorno invÃ¡lido.")
     refund = Refund(**values)
     session.add(refund)
     session.flush()
@@ -374,10 +326,10 @@ def register_refund(session: Session, purchase_id: str, amount_minor: int, statu
 
 
 def create_initial_purchase(session: Session, card_id: str, description: str, purchase_date: date, total_minor: int, total_installments: int, next_installment: int, category_id: Optional[str], first_pending_invoice_month: str) -> Purchase:
-    card = require_active(session, Card, card_id, "Cartão")
+    card = require_active(session, Card, card_id, "CartÃ£o")
     schedule = installment_schedule(total_minor, total_installments, first_pending_invoice_month, card.closing_day, card.due_day)
     if next_installment < 1 or next_installment > total_installments:
-        raise DomainValidationError("Próxima parcela inválida.")
+        raise DomainValidationError("PrÃ³xima parcela invÃ¡lida.")
     purchase = Purchase(card_id=card.id, description=description, purchase_date=purchase_date, total_minor=total_minor, installment_count=total_installments, category_id=category_id, source="opening", status="confirmed")
     session.add(purchase)
     session.flush()
@@ -394,13 +346,13 @@ def create_initial_purchase(session: Session, card_id: str, description: str, pu
 def replace_opening_contribution(session: Session, adjustment_id: str, installment_ids: Iterable[str], amount_minor: int):
     adjustment = session.query(InvoiceAdjustment).filter(InvoiceAdjustment.id == adjustment_id).one_or_none()
     if adjustment is None or adjustment.kind != "opening" or adjustment.status != "active" or adjustment.signed_amount_minor <= 0:
-        raise DomainValidationError("Compromisso inicial não está disponível para detalhamento.")
+        raise DomainValidationError("Compromisso inicial nÃ£o estÃ¡ disponÃ­vel para detalhamento.")
     validate_minor(amount_minor)
     selected = session.query(Installment).filter(Installment.id.in_(list(installment_ids)), Installment.invoice_id == adjustment.invoice_id, Installment.status == "confirmed").all()
     if sum(item.amount_minor for item in selected) != amount_minor:
-        raise DomainValidationError("A contribuição das parcelas à fatura deve igualar o valor substituído.")
+        raise DomainValidationError("A contribuiÃ§Ã£o das parcelas Ã  fatura deve igualar o valor substituÃ­do.")
     if amount_minor > adjustment.signed_amount_minor:
-        raise DomainValidationError("Valor substituído excede o compromisso inicial.")
+        raise DomainValidationError("Valor substituÃ­do excede o compromisso inicial.")
     before = adjustment.signed_amount_minor
     if amount_minor == before:
         adjustment.status = "cancelled"
@@ -414,12 +366,10 @@ def replace_opening_contribution(session: Session, adjustment_id: str, installme
 def edit_purchase_category(session: Session, purchase_id: str, category_id: Optional[str], expected_revision: int):
     purchase = session.query(Purchase).filter(Purchase.id == purchase_id).one_or_none()
     if purchase is None:
-        raise DomainValidationError("Compra não encontrada.")
+        raise DomainValidationError("Compra nÃ£o encontrada.")
     ensure_revision(purchase, expected_revision)
     if category_id:
-        category = require_active(session, Category, category_id, "Categoria")
-        if category.kind != "expense":
-            raise DomainValidationError("Categoria deve ser de despesa.")
+        require_active(session, Category, category_id, "Categoria")
     before = purchase.category_id
     purchase.category_id = category_id
     purchase.revision += 1
@@ -432,10 +382,53 @@ def edit_purchase_category(session: Session, purchase_id: str, category_id: Opti
     return purchase
 
 
+def correct_purchase(session: Session, purchase_id: str, expected_revision: int, today: date, **changes):
+    purchase = session.query(Purchase).filter(Purchase.id == purchase_id).one_or_none()
+    if purchase is None:
+        raise DomainValidationError("Compra nÃ£o encontrada.")
+    ensure_revision(purchase, expected_revision)
+    if purchase.source != "manual":
+        raise DomainValidationError("Somente compras manuais podem ser alteradas.")
+    installments = session.query(Installment).filter(Installment.purchase_id == purchase.id).all()
+    if any(session.query(Invoice).filter(Invoice.id == item.invoice_id).one().state == "settled" for item in installments):
+        raise DomainValidationError("NÃ£o Ã© possÃ­vel alterar uma compra com parcela em fatura liquidada.")
+    card, schedule = preview_purchase(
+        session,
+        changes["card_id"],
+        changes["purchase_date"],
+        changes["total_minor"],
+        changes["installment_count"],
+        changes.get("first_invoice_month"),
+        today,
+    )
+    if changes.get("category_id"):
+        require_active(session, Category, changes["category_id"], "Categoria")
+    before = {
+        "card_id": purchase.card_id, "description": purchase.description,
+        "purchase_date": purchase.purchase_date, "total_minor": purchase.total_minor,
+        "installment_count": purchase.installment_count, "category_id": purchase.category_id,
+    }
+    session.query(Installment).filter(Installment.purchase_id == purchase.id).delete(synchronize_session=False)
+    purchase.card_id = card.id
+    purchase.description = changes["description"].strip()
+    purchase.purchase_date = changes["purchase_date"]
+    purchase.total_minor = changes["total_minor"]
+    purchase.installment_count = changes["installment_count"]
+    purchase.category_id = changes.get("category_id")
+    purchase.revision += 1
+    for item in schedule:
+        invoice = get_or_create_invoice(session, card, item.reference_month)
+        if invoice.state == "settled":
+            raise DomainValidationError("NÃ£o Ã© possÃ­vel incluir parcela em fatura liquidada.")
+        session.add(Installment(purchase_id=purchase.id, installment_number=item.installment_number, amount_minor=item.amount_minor, invoice_id=invoice.id, category_id_snapshot=purchase.category_id, status="confirmed"))
+    audit(session, "purchase", purchase.id, "corrected", before=before, after={key: value for key, value in changes.items() if key != "first_invoice_month"})
+    return purchase
+
+
 def archive_entity(session: Session, model, entity_id: str, expected_revision: int):
     entity = session.query(model).filter(model.id == entity_id).one_or_none()
     if entity is None or not hasattr(entity, "archived_at"):
-        raise DomainValidationError("Entidade não encontrada ou não arquivável.")
+        raise DomainValidationError("Entidade nÃ£o encontrada ou nÃ£o arquivÃ¡vel.")
     ensure_revision(entity, expected_revision)
     entity.archived_at = datetime.now(timezone.utc)
     entity.revision += 1
@@ -446,7 +439,7 @@ def archive_entity(session: Session, model, entity_id: str, expected_revision: i
 def update_named_entity(session: Session, model, entity_id: str, expected_revision: int, **changes):
     entity = session.query(model).filter(model.id == entity_id).one_or_none()
     if entity is None:
-        raise DomainValidationError("Entidade não encontrada.")
+        raise DomainValidationError("Entidade nÃ£o encontrada.")
     ensure_revision(entity, expected_revision)
     before = {name: getattr(entity, name) for name in changes}
     for name, value in changes.items():
@@ -456,24 +449,22 @@ def update_named_entity(session: Session, model, entity_id: str, expected_revisi
     return entity
 
 
-def correct_cash_entry(session: Session, entry_id: str, expected_revision: int, reason: str, today: date, **values):
+def correct_cash_entry(session: Session, entry_id: str, expected_revision: int, today: date, **values):
     entry = session.query(CashEntry).filter(CashEntry.id == entry_id).one_or_none()
     if entry is None:
-        raise DomainValidationError("Movimentação não encontrada.")
+        raise DomainValidationError("MovimentaÃ§Ã£o nÃ£o encontrada.")
     ensure_revision(entry, expected_revision)
     if entry.source not in ("manual", "recurrence") or entry.kind in ("transfer", "invoice_payment"):
-        raise DomainValidationError("Corrija esta movimentação pelo fluxo de origem.")
+        raise DomainValidationError("Corrija esta movimentaÃ§Ã£o pelo fluxo de origem.")
     before = {"description": entry.description, "signed_amount_minor": entry.signed_amount_minor, "planned_date": entry.planned_date, "effective_date": entry.effective_date, "category_id": entry.category_id, "status": entry.status}
     account = require_active(session, Account, values["account_id"], "Conta")
     category_id = values.get("category_id")
     kind = values["kind"]
     if category_id:
-        category = require_active(session, Category, category_id, "Categoria")
-        if kind in ("income", "expense") and category.kind != kind:
-            raise DomainValidationError("Categoria incompatível com o tipo da movimentação.")
+        require_active(session, Category, category_id, "Categoria")
     effective_date = values.get("effective_date")
     if values["status"] == "effective" and (effective_date is None or effective_date > today):
-        raise DomainValidationError("Data efetiva inválida.")
+        raise DomainValidationError("Data efetiva invÃ¡lida.")
     amount_minor = values["amount_minor"]
     validate_minor(amount_minor)
     entry.account_id = account.id
@@ -486,17 +477,17 @@ def correct_cash_entry(session: Session, entry_id: str, expected_revision: int, 
     entry.category_id = category_id
     entry.note = values.get("note")
     entry.revision += 1
-    audit(session, "cash_entry", entry.id, "corrected", before=before, after={"signed_amount_minor": entry.signed_amount_minor, "status": entry.status}, reason=reason)
+    audit(session, "cash_entry", entry.id, "corrected", before=before, after={"signed_amount_minor": entry.signed_amount_minor, "status": entry.status})
     return entry
 
 
 def update_card_terms(session: Session, card_id: str, closing_day: int, due_day: int, expected_revision: int):
     card = session.query(Card).filter(Card.id == card_id).one_or_none()
     if card is None:
-        raise DomainValidationError("Cartão não encontrado.")
+        raise DomainValidationError("CartÃ£o nÃ£o encontrado.")
     ensure_revision(card, expected_revision)
     if not (1 <= closing_day <= 31 and 1 <= due_day <= 31):
-        raise DomainValidationError("Dias de fechamento/vencimento inválidos.")
+        raise DomainValidationError("Dias de fechamento/vencimento invÃ¡lidos.")
     before = {"closing_day": card.closing_day, "due_day": card.due_day}
     card.closing_day = closing_day
     card.due_day = due_day
@@ -508,7 +499,7 @@ def update_card_terms(session: Session, card_id: str, closing_day: int, due_day:
 def confirm_recurrence_occurrence(session: Session, occurrence_id: str, actual_date: date, actual_amount_minor: int, today: date):
     occurrence = session.query(RecurrenceOccurrence).filter(RecurrenceOccurrence.id == occurrence_id).one_or_none()
     if occurrence is None:
-        raise DomainValidationError("Ocorrência não encontrada.")
+        raise DomainValidationError("OcorrÃªncia nÃ£o encontrada.")
     ensure_transition("recurrence_occurrences", occurrence.status, "confirmed")
     rule = session.query(RecurrenceRule).filter(RecurrenceRule.id == occurrence.rule_id).one()
     if rule.kind in ("income", "expense"):
@@ -524,3 +515,5 @@ def confirm_recurrence_occurrence(session: Session, occurrence_id: str, actual_d
     session.flush()
     audit(session, "recurrence_occurrence", occurrence.id, "confirmed")
     return occurrence
+
+

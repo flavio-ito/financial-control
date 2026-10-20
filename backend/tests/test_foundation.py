@@ -1,9 +1,10 @@
 import sqlite3
+from threading import Thread
 
 from sqlalchemy import text
 
 from app.config import APP_ID, data_directory
-from app.storage.database import Database
+from app.storage.database import Database, financial_write_lock
 from app.storage.migrations import current_revision, head_revision, migrate
 
 
@@ -41,9 +42,26 @@ def test_foreign_keys_are_enabled_on_every_connection(tmp_path):
     database.dispose()
 
 
+def test_financial_write_lock_can_be_finalized_on_another_worker_thread():
+    acquired = []
+    released = []
+
+    acquire_thread = Thread(target=lambda: (financial_write_lock.acquire(), acquired.append(True)))
+    acquire_thread.start()
+    acquire_thread.join(timeout=1)
+
+    release_thread = Thread(target=lambda: (financial_write_lock.release(), released.append(True)))
+    release_thread.start()
+    release_thread.join(timeout=1)
+
+    assert acquired == [True]
+    assert released == [True]
+    assert not financial_write_lock.locked()
+
+
 def test_spa_fallback_never_captures_api(app_client):
     client, _token, _path, _database = app_client
-    assert client.get("/planejamento/2026-09").text == "<html>SPA</html>"
+    assert client.get("/movimentacoes/2026-09").text == "<html>SPA</html>"
     response = client.get("/api/v1/does-not-exist")
     assert response.status_code == 404
     assert "SPA" not in response.text

@@ -39,7 +39,8 @@ def notify_already_running(runtime_path: Path) -> None:
         print(message)
 
 
-def main(data_dir_override: Optional[str] = None, open_browser: bool = True) -> int:
+def main(data_dir_override: Optional[str] = None, open_browser: bool = True,
+         frontend_url: Optional[str] = None, server_port: Optional[int] = None) -> int:
     data_dir = data_directory(data_dir_override)
     lock = FileLock(str(data_dir / "{}.lock".format(APP_ID)))
     try:
@@ -64,7 +65,7 @@ def main(data_dir_override: Optional[str] = None, open_browser: bool = True) -> 
         generate_pending_occurrences(db)
         ensure_daily_backup(database_path, data_dir / "backups" / "daily")
 
-        port = available_port()
+        port = server_port or available_port()
         token = security.issue_bootstrap()
         server_box = {}
 
@@ -76,16 +77,19 @@ def main(data_dir_override: Optional[str] = None, open_browser: bool = True) -> 
         server = uvicorn.Server(config)
         server_box["server"] = server
         runtime_path.write_text(json.dumps({"port": port, "pid": os.getpid()}), encoding="utf-8")
-        url = "http://127.0.0.1:{}/#bootstrap={}".format(port, token)
+        origin = frontend_url or "http://127.0.0.1:{}".format(port)
+        url = "{}/#bootstrap={}".format(origin.rstrip("/"), token)
         if open_browser and os.environ.get("FINANCAS_NO_BROWSER") != "1":
             Timer(0.35, lambda: webbrowser.open(url)).start()
         server.run()
         return 0
     except Exception:
+        error = traceback.format_exc()
         try:
-            startup_error_path.write_text(traceback.format_exc(), encoding="utf-8")
+            startup_error_path.write_text(error, encoding="utf-8")
         except OSError:
             pass
+        print(error, file=sys.stderr, flush=True)
         return 1
     finally:
         security.revoke_all()

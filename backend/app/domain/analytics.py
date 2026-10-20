@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict
+from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
@@ -18,14 +18,18 @@ class MonthlySummary:
     uncategorized_minor: int
 
 
-def monthly_summary(session: Session, month: str) -> MonthlySummary:
+def monthly_summary(session: Session, month: str, account_id: Optional[str] = None, card_id: Optional[str] = None, category_id: Optional[str] = None) -> MonthlySummary:
     start = limited_date(month, 1)
     end = limited_date(add_months(month, 1), 1)
-    entries = (
+    entries_query = (
         session.query(CashEntry)
         .filter(CashEntry.status == "effective", CashEntry.effective_date >= start, CashEntry.effective_date < end)
-        .all()
     )
+    if account_id:
+        entries_query = entries_query.filter(CashEntry.account_id == account_id)
+    if category_id:
+        entries_query = entries_query.filter(CashEntry.category_id == category_id)
+    entries = [] if card_id else entries_query.all()
     income = sum(item.signed_amount_minor for item in entries if item.kind == "income")
     expense = sum(-item.signed_amount_minor for item in entries if item.kind == "expense")
     cash_refunds = sum(item.signed_amount_minor for item in entries if item.kind == "refund")
@@ -40,12 +44,18 @@ def monthly_summary(session: Session, month: str) -> MonthlySummary:
             else:
                 uncategorized += value
 
-    installments = (
+    installments_query = (
         session.query(Installment)
         .join(Invoice, Invoice.id == Installment.invoice_id)
         .filter(Invoice.reference_month == month, Installment.status.in_(("confirmed", "historical_settled")))
-        .all()
     )
+    if card_id:
+        installments_query = installments_query.filter(Invoice.card_id == card_id)
+    if account_id:
+        installments_query = installments_query.join(Card, Card.id == Invoice.card_id).filter(Card.default_account_id == account_id)
+    if category_id:
+        installments_query = installments_query.filter(Installment.category_id_snapshot == category_id)
+    installments = installments_query.all()
     card_expense = sum(item.amount_minor for item in installments)
     for item in installments:
         if item.category_id_snapshot:
@@ -53,7 +63,7 @@ def monthly_summary(session: Session, month: str) -> MonthlySummary:
         else:
             uncategorized += item.amount_minor
 
-    adjustments = (
+    adjustments_query = (
         session.query(InvoiceAdjustment)
         .join(Invoice, Invoice.id == InvoiceAdjustment.invoice_id)
         .filter(
@@ -61,8 +71,14 @@ def monthly_summary(session: Session, month: str) -> MonthlySummary:
             InvoiceAdjustment.status.in_(("active", "consumed")),
             InvoiceAdjustment.kind.in_(("opening", "debit", "refund")),
         )
-        .all()
     )
+    if card_id:
+        adjustments_query = adjustments_query.filter(Invoice.card_id == card_id)
+    if account_id:
+        adjustments_query = adjustments_query.join(Card, Card.id == Invoice.card_id).filter(Card.default_account_id == account_id)
+    if category_id:
+        adjustments_query = adjustments_query.filter(InvoiceAdjustment.category_id == category_id)
+    adjustments = adjustments_query.all()
     analytical_adjustment = sum(item.signed_amount_minor for item in adjustments)
     for item in adjustments:
         if item.category_id:

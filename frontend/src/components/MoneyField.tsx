@@ -10,4 +10,3 @@ export function MoneyField({ label, registration, error }: { label: string; regi
     </label>
   );
 }
-

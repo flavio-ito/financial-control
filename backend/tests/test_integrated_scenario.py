@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.domain.analytics import monthly_summary
-from app.domain.planning import card_commitment
+from app.domain.card_commitment import card_commitment
 from app.domain.services import balance_for_account, close_invoice, create_cash_entry, create_purchase, create_transfer, settle_invoice
 from app.storage.models import Account, Card, Category, Invoice
 
@@ -11,8 +11,8 @@ def test_integrated_reference_scenario_has_exact_balances_and_no_double_counting
     with domain_db.session() as session:
         account_a = Account(name="A", reference_date=date(2026, 8, 31), reference_balance_minor=300000)
         account_b = Account(name="B", reference_date=date(2026, 8, 31), reference_balance_minor=50000)
-        income_category = Category(name="Renda", kind="income")
-        expense_category = Category(name="Consumo", kind="expense")
+        income_category = Category(name="Renda")
+        expense_category = Category(name="Consumo")
         session.add_all([account_a, account_b, income_category, expense_category])
         session.flush()
         card = Card(name="Cartão", limit_minor=500000, closing_day=10, due_day=20, default_account_id=account_a.id)

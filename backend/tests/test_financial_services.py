@@ -8,16 +8,14 @@ from app.domain.services import (
     balance_for_account,
     calculate_invoice,
     close_invoice,
-    confirm_planned_card_purchase,
     create_cash_entry,
-    create_planned_card_purchase,
     create_purchase,
     create_transfer,
     register_refund,
     reverse_transfer,
     settle_invoice,
 )
-from app.storage.models import Account, Card, CashEntry, Category, Installment, Invoice, InvoiceAdjustment, Payment, PlannedCardPurchase, Purchase, Refund, Transfer
+from app.storage.models import Account, Card, CashEntry, Category, Installment, Invoice, InvoiceAdjustment, Payment, Purchase, Refund, Transfer
 
 
 TODAY = date(2026, 9, 30)
@@ -26,8 +24,8 @@ TODAY = date(2026, 9, 30)
 def setup_base(session):
     account_a = Account(name="Conta A", reference_date=date(2026, 8, 31), reference_balance_minor=100000)
     account_b = Account(name="Conta B", reference_date=date(2026, 8, 31), reference_balance_minor=50000)
-    income = Category(name="Renda", kind="income")
-    expense = Category(name="Alimentação", kind="expense")
+    income = Category(name="Renda")
+    expense = Category(name="Alimentação")
     session.add_all([account_a, account_b, income, expense])
     session.flush()
     card = Card(name="Cartão", limit_minor=500000, closing_day=10, due_day=20, default_account_id=account_a.id)
@@ -137,21 +135,6 @@ def test_ac16_refund_and_cancellation_cannot_abate_same_value(domain_db):
         register_refund(session, ids[0], 6000, "confirmed", TODAY, "invoice", ids[1], "Duplo abatimento", TODAY, TODAY)
     with domain_db.session() as session:
         assert session.query(Refund).count() == 0
-
-
-def test_ac34_planned_purchase_is_replaced_by_exactly_one_real_purchase(domain_db):
-    with domain_db.session() as session:
-        _account, _b, card, _income, expense = setup_base(session)
-        planned = create_planned_card_purchase(session, card.id, "Planejada", expense.id, date(2026, 9, 15), 30000, "2026-10")
-        planned_id = planned.id
-    with domain_db.session() as session:
-        purchase = confirm_planned_card_purchase(session, planned_id, date(2026, 9, 16), 33000, 3, "2026-10", TODAY)
-        purchase_id = purchase.id
-    with domain_db.session() as session:
-        planned = session.query(PlannedCardPurchase).one()
-        assert planned.status == "confirmed" and planned.confirmed_purchase_id == purchase_id
-        assert session.query(Purchase).count() == 1
-        assert [row.amount_minor for row in session.query(Installment).order_by(Installment.installment_number)] == [11000, 11000, 11000]
 
 
 def test_transfer_reversal_creates_inverse_legs(domain_db):

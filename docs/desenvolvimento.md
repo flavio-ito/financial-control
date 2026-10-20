@@ -23,6 +23,26 @@ npm.cmd --prefix frontend ci
 
 ## Comandos
 
+Para desenvolver a interface com atualização automática ao salvar:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\dev.ps1
+```
+
+O comando inicia o Vite e o backend em portas locais disponíveis e abre o navegador
+com a sessão autenticada. React, TypeScript e CSS são atualizados pelo Vite ao
+salvar. Use a página aberta por esse comando para visualizar as alterações.
+O executável empacotado continua usando a interface compilada.
+
+Os dados de desenvolvimento ficam em `build/dev-data`, separados dos dados do
+executável. O primeiro acesso requer o onboarding. Para escolher outra pasta,
+defina `FINANCAS_DATA_DIR` antes de executar o comando.
+
+Para encerrar, use **Configurações e dados > Encerrar aplicativo** ou `Ctrl+C`
+no terminal. Mudanças no backend Python exigem encerrar e executar o comando
+novamente. As requisições `/api` passam pelo proxy do Vite, preservando a
+validação de origem, os cookies de sessão e o CSRF.
+
 ```powershell
 .\.venv\Scripts\python.exe -m pytest backend\tests -q
 npm.cmd --prefix frontend test -- --run

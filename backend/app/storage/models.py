@@ -33,6 +33,7 @@ class Setting(Base):
     currency = Column(String(3), nullable=False, default="BRL")
     timezone = Column(String(64), nullable=False, default="America/Sao_Paulo")
     setup_step = Column(Integer, nullable=False, default=0)
+    cdi_annual_rate_bps = Column(Integer, nullable=False, default=1447)
     revision = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
     updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
@@ -72,14 +73,58 @@ class Card(MutableMixin, Base):
     archived_at = Column(DateTime(timezone=True))
 
 
+class Investment(MutableMixin, Base):
+    __tablename__ = "investments"
+    __table_args__ = (
+        CheckConstraint("amount_minor BETWEEN 0 AND {}".format(SAFE), name="ck_investments_safe_amount"),
+        CheckConstraint("cdi_percentage BETWEEN 0 AND 100000", name="ck_investments_cdi_percentage"),
+        Index("ix_investments_account", "account_id"),
+        Index("ix_investments_archived_at", "archived_at"),
+    )
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    cdi_percentage = Column(Integer, nullable=False)
+    archived_at = Column(DateTime(timezone=True))
+
+
+class InvestmentYield(MutableMixin, Base):
+    __tablename__ = "investment_yields"
+    __table_args__ = (
+        UniqueConstraint("investment_id", "yield_date", name="uq_investment_yields_investment_date"),
+        CheckConstraint("amount_minor BETWEEN 0 AND {}".format(SAFE), name="ck_investment_yields_safe_amount"),
+        Index("ix_investment_yields_date", "yield_date"),
+        Index("ix_investment_yields_cash_entry", "cash_entry_id"),
+    )
+    investment_id = Column(String(36), ForeignKey("investments.id", ondelete="RESTRICT"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    yield_date = Column(Date, nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    balance_before_minor = Column(Integer, nullable=False)
+    balance_after_minor = Column(Integer, nullable=False)
+    cdi_annual_rate_bps = Column(Integer, nullable=False)
+    investment_cdi_percentage = Column(Integer, nullable=False)
+    cash_entry_id = Column(String(36), ForeignKey("cash_entries.id", ondelete="RESTRICT"), unique=True)
+
+
+class InvestmentWithdrawal(MutableMixin, Base):
+    __tablename__ = "investment_withdrawals"
+    __table_args__ = (
+        CheckConstraint("amount_minor BETWEEN 1 AND {}".format(SAFE), name="ck_investment_withdrawals_safe_amount"),
+        Index("ix_investment_withdrawals_date", "withdrawal_date"),
+    )
+    investment_id = Column(String(36), ForeignKey("investments.id", ondelete="RESTRICT"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    withdrawal_date = Column(Date, nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    balance_before_minor = Column(Integer, nullable=False)
+    balance_after_minor = Column(Integer, nullable=False)
+    cash_entry_id = Column(String(36), ForeignKey("cash_entries.id", ondelete="RESTRICT"), nullable=False, unique=True)
+
+
 class Category(MutableMixin, Base):
     __tablename__ = "categories"
-    __table_args__ = (
-        CheckConstraint("kind IN ('income','expense')", name="ck_categories_kind"),
-        Index("ix_categories_kind_archived", "kind", "archived_at"),
-    )
+    __table_args__ = (Index("ix_categories_archived_at", "archived_at"),)
     name = Column(String(120), nullable=False)
-    kind = Column(String(16), nullable=False)
     archived_at = Column(DateTime(timezone=True))
 
 
@@ -141,28 +186,6 @@ class CashEntry(MutableMixin, Base):
     source_connection_id = Column(String(160))
 
 
-class PlannedCardPurchase(MutableMixin, Base):
-    __tablename__ = "planned_card_purchases"
-    __table_args__ = (
-        CheckConstraint("expected_amount_minor BETWEEN 1 AND {}".format(SAFE), name="ck_planned_purchases_safe_amount"),
-        CheckConstraint("currency = 'BRL'", name="ck_planned_purchases_currency_brl"),
-        CheckConstraint("status IN ('planned','confirmed','cancelled')", name="ck_planned_purchases_status"),
-        CheckConstraint("(status = 'confirmed' AND confirmed_purchase_id IS NOT NULL) OR (status <> 'confirmed' AND confirmed_purchase_id IS NULL)", name="ck_planned_purchases_confirmation_link"),
-        Index("ix_planned_purchases_card_month", "card_id", "estimated_invoice_month"),
-        Index("ix_planned_purchases_category", "category_id"),
-        Index("ix_planned_purchases_status_date", "status", "expected_date"),
-    )
-    card_id = Column(String(36), ForeignKey("cards.id", ondelete="RESTRICT"), nullable=False)
-    description = Column(String(240), nullable=False)
-    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"))
-    expected_date = Column(Date, nullable=False)
-    expected_amount_minor = Column(Integer, nullable=False)
-    currency = Column(String(3), nullable=False, default="BRL")
-    estimated_invoice_month = Column(String(7), nullable=False)
-    status = Column(String(16), nullable=False, default="planned")
-    confirmed_purchase_id = Column(String(36), ForeignKey("purchases.id", ondelete="RESTRICT"), unique=True)
-
-
 class Purchase(MutableMixin, Base):
     __tablename__ = "purchases"
     __table_args__ = (
@@ -185,7 +208,6 @@ class Purchase(MutableMixin, Base):
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"))
     source = Column(String(24), nullable=False, default="manual")
     recurrence_occurrence_id = Column(String(36), ForeignKey("recurrence_occurrences.id", ondelete="RESTRICT"))
-    planned_card_purchase_id = Column(String(36), ForeignKey("planned_card_purchases.id", ondelete="RESTRICT"), unique=True)
     status = Column(String(16), nullable=False, default="confirmed")
     external_id = Column(String(160))
     source_connection_id = Column(String(160))
@@ -247,19 +269,6 @@ class InvoiceAdjustment(MutableMixin, Base):
     category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"))
     refund_id = Column(String(36), ForeignKey("refunds.id", ondelete="RESTRICT"))
     origin_invoice_id = Column(String(36), ForeignKey("invoices.id", ondelete="RESTRICT"))
-    status = Column(String(16), nullable=False, default="active")
-
-
-class InvoicePaymentPlan(MutableMixin, Base):
-    __tablename__ = "invoice_payment_plans"
-    __table_args__ = (
-        CheckConstraint("status IN ('active','cancelled')", name="ck_invoice_payment_plans_status"),
-        Index("ix_invoice_payment_plans_date", "planned_date"),
-        Index("uq_active_invoice_payment_plan", "invoice_id", unique=True, sqlite_where=text("status = 'active'")),
-    )
-    invoice_id = Column(String(36), ForeignKey("invoices.id", ondelete="RESTRICT"), nullable=False)
-    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    planned_date = Column(Date, nullable=False)
     status = Column(String(16), nullable=False, default="active")
 
 
@@ -358,34 +367,6 @@ class RecurrenceOccurrence(MutableMixin, Base):
     linked_cash_entry_id = Column(String(36), ForeignKey("cash_entries.id", ondelete="RESTRICT"), unique=True)
     linked_purchase_id = Column(String(36), ForeignKey("purchases.id", ondelete="RESTRICT"), unique=True)
     superseded_by_rule_id = Column(String(36), ForeignKey("recurrence_rules.id", ondelete="RESTRICT"))
-
-
-class BudgetDefault(MutableMixin, Base):
-    __tablename__ = "budget_defaults"
-    __table_args__ = (
-        UniqueConstraint("category_id", "effective_from_month", name="uq_budget_defaults_category_month"),
-        CheckConstraint("amount_minor BETWEEN 0 AND {}".format(SAFE), name="ck_budget_defaults_safe_amount"),
-        CheckConstraint("currency = 'BRL'", name="ck_budget_defaults_currency_brl"),
-        Index("ix_budget_defaults_effective", "effective_from_month"),
-    )
-    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
-    effective_from_month = Column(String(7), nullable=False)
-    amount_minor = Column(Integer, nullable=False)
-    currency = Column(String(3), nullable=False, default="BRL")
-
-
-class Budget(MutableMixin, Base):
-    __tablename__ = "budgets"
-    __table_args__ = (
-        UniqueConstraint("category_id", "month", name="uq_budgets_category_month"),
-        CheckConstraint("amount_minor BETWEEN 0 AND {}".format(SAFE), name="ck_budgets_safe_amount"),
-        CheckConstraint("currency = 'BRL'", name="ck_budgets_currency_brl"),
-        Index("ix_budgets_month", "month"),
-    )
-    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
-    month = Column(String(7), nullable=False)
-    amount_minor = Column(Integer, nullable=False)
-    currency = Column(String(3), nullable=False, default="BRL")
 
 
 class CoverageInterval(MutableMixin, Base):

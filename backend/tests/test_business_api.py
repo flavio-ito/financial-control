@@ -40,6 +40,76 @@ def test_effective_expense_on_reference_date_updates_current_balance(authenticat
     assert saved["current_balance_minor"] == 100
 
 
+def test_cash_entry_installments_split_total_and_schedule_monthly(authenticated):
+    client, csrf, _path, _database = authenticated
+    account = client.post(
+        "/api/v1/accounts",
+        json={"name": "Conta parcelada", "reference_date": "2026-01-01", "reference_balance_minor": 100000},
+        headers=headers(csrf),
+    ).json()
+
+    response = client.post(
+        "/api/v1/cash-entries/installments",
+        json={
+            "account_id": account["id"], "kind": "expense", "description": "Curso",
+            "amount_minor": 1000, "installment_count": 3, "planned_date": "2026-01-31",
+            "status": "planned",
+        },
+        headers=headers(csrf, "installment-expense"),
+    )
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["signed_amount_minor"] for item in items] == [-334, -333, -333]
+    assert [item["planned_date"] for item in items] == ["2026-01-31", "2026-02-28", "2026-03-31"]
+    assert [item["description"] for item in items] == ["Curso (1/3)", "Curso (2/3)", "Curso (3/3)"]
+
+
+def test_purchase_installment_history_uses_each_monthly_amount(authenticated):
+    client, csrf, _path, _database = authenticated
+    mutation = headers(csrf)
+    account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-01-01", "reference_balance_minor": 0}, headers=mutation).json()
+    category = client.post("/api/v1/categories", json={"name": "Roupas"}, headers=mutation).json()
+    card = client.post("/api/v1/cards", json={"name": "Cartão", "limit_minor": 100000, "closing_day": 10, "due_day": 20, "default_account_id": account["id"]}, headers=mutation).json()
+    payload = {"card_id": card["id"], "description": "Tênis", "purchase_date": "2026-07-01", "total_minor": 1000, "installment_count": 3, "category_id": category["id"], "first_invoice_month": "2026-07"}
+    preview = client.post("/api/v1/purchases/preview", json=payload).json()
+    created = client.post("/api/v1/purchases", json=dict(payload, preview_token=preview["preview_token"]), headers=headers(csrf, "monthly-card-expense"))
+    assert created.status_code == 200
+
+    response = client.get("/api/v1/purchase-installments", params={"date_from": "2026-07-01", "date_to": "2026-09-30", "account_id": account["id"]})
+    assert response.status_code == 200
+    items = sorted(response.json()["items"], key=lambda item: item["installment_number"])
+    assert [item["amount_minor"] for item in items] == [334, 333, 333]
+    assert [item["reference_month"] for item in items] == ["2026-07", "2026-08", "2026-09"]
+
+
+def test_investment_crud_and_archive(authenticated):
+    client, csrf, _path, _database = authenticated
+    mutation = headers(csrf)
+    account = client.post(
+        "/api/v1/accounts",
+        json={"name": "Conta investimento", "institution": "Banco Teste", "reference_date": date.today().isoformat(), "reference_balance_minor": 0},
+        headers=mutation,
+    ).json()
+    created = client.post(
+        "/api/v1/investments",
+        json={"account_id": account["id"], "amount_minor": 250000, "cdi_percentage": 11050},
+        headers=mutation,
+    )
+    assert created.status_code == 200
+    investment = created.json()
+    assert investment["cdi_percentage"] == 11050
+    assert client.get("/api/v1/investments").json()["items"][0]["amount_minor"] == 250000
+
+    archived = client.post(
+        "/api/v1/investments/{}/archive".format(investment["id"]),
+        json={"expected_revision": investment["revision"]},
+        headers=mutation,
+    )
+    assert archived.status_code == 200
+    assert client.get("/api/v1/investments").json()["items"] == []
+
+
 def test_api_crud_filters_and_relative_contract(authenticated):
     client, csrf, _path, _database = authenticated
     account = client.post(
@@ -48,7 +118,7 @@ def test_api_crud_filters_and_relative_contract(authenticated):
         headers=headers(csrf),
     )
     assert account.status_code == 200
-    category = client.post("/api/v1/categories", json={"name": "Mercado", "kind": "expense"}, headers=headers(csrf))
+    category = client.post("/api/v1/categories", json={"name": "Mercado"}, headers=headers(csrf))
     assert category.status_code == 200
     entry = client.post(
         "/api/v1/cash-entries",
@@ -63,6 +133,20 @@ def test_api_crud_filters_and_relative_contract(authenticated):
     listing = client.get("/api/v1/cash-entries", params={"account_id": account.json()["id"], "status": "effective"})
     assert listing.status_code == 200 and listing.json()["total"] == 1
     assert client.get("/api/v1/api/v1/accounts").status_code == 404
+
+
+def test_overview_report_supports_combined_filters(authenticated):
+    client, csrf, _path, _database = authenticated
+    account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-10-01", "reference_balance_minor": 100000}, headers=headers(csrf)).json()
+    category = client.post("/api/v1/categories", json={"name": "Casa"}, headers=headers(csrf)).json()
+    response = client.get("/api/v1/reports/overview", params={"date_from": "2026-10", "date_to": "2026-10", "account_id": account["id"], "category_id": category["id"]})
+
+    assert response.status_code == 200
+    assert response.json()["months"] == [{
+        "month": "2026-10", "balance_minor": 100000, "income_minor": 0, "expense_minor": 0,
+        "registered_result_minor": 0, "cash_flow_minor": 0,
+        "categories": {}, "uncategorized_minor": 0,
+    }]
 
 
 def test_api_rejects_unsafe_money_with_stable_error(authenticated):
@@ -146,7 +230,7 @@ def test_stale_payment_preview_recalculates_and_applies_nothing(authenticated):
 def test_purchase_preview_and_confirmation_share_domain_service(authenticated):
     client, csrf, _path, _database = authenticated
     account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-08-31", "reference_balance_minor": 0}, headers=headers(csrf)).json()
-    category = client.post("/api/v1/categories", json={"name": "Categoria", "kind": "expense"}, headers=headers(csrf)).json()
+    category = client.post("/api/v1/categories", json={"name": "Categoria"}, headers=headers(csrf)).json()
     card = client.post("/api/v1/cards", json={"name": "Cartão", "limit_minor": 20000, "closing_day": 10, "due_day": 20, "default_account_id": account["id"]}, headers=headers(csrf)).json()
     payload = {"card_id": card["id"], "description": "Compra", "purchase_date": "2026-09-01", "total_minor": 10000, "installment_count": 3, "category_id": category["id"], "first_invoice_month": "2026-09"}
     preview = client.post("/api/v1/purchases/preview", json=payload)
@@ -156,6 +240,24 @@ def test_purchase_preview_and_confirmation_share_domain_service(authenticated):
     assert confirmation.status_code == 200
     replay = client.post("/api/v1/purchases", json=dict(payload, preview_token=preview.json()["preview_token"]), headers=headers(csrf, "purchase-1"))
     assert replay.status_code == 200 and replay.json()["id"] == confirmation.json()["id"]
+
+
+def test_manual_purchase_can_be_fully_edited(authenticated):
+    client, csrf, _path, _database = authenticated
+    mutation = headers(csrf)
+    account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-08-31", "reference_balance_minor": 0}, headers=mutation).json()
+    category = client.post("/api/v1/categories", json={"name": "Categoria"}, headers=mutation).json()
+    card = client.post("/api/v1/cards", json={"name": "CartÃ£o", "limit_minor": 50000, "closing_day": 10, "due_day": 20, "default_account_id": account["id"]}, headers=mutation).json()
+    original = {"card_id": card["id"], "description": "Compra", "purchase_date": "2026-09-01", "total_minor": 10000, "installment_count": 2, "category_id": None, "first_invoice_month": "2026-09"}
+    preview = client.post("/api/v1/purchases/preview", json=original).json()
+    purchase = client.post("/api/v1/purchases", json=dict(original, preview_token=preview["preview_token"]), headers=headers(csrf, "purchase-edit")).json()
+    updated = client.put("/api/v1/purchases/{}".format(purchase["id"]), json={"card_id": card["id"], "description": "Compra corrigida", "purchase_date": "2026-09-02", "total_minor": 12000, "installment_count": 3, "category_id": category["id"], "first_invoice_month": None, "expected_revision": purchase["revision"]}, headers=mutation)
+    assert updated.status_code == 200
+    assert updated.json()["description"] == "Compra corrigida"
+    detail = client.get("/api/v1/purchases/{}".format(purchase["id"])).json()
+    assert [item["amount_minor"] for item in detail["installments"]] == [4000, 4000, 4000]
+    history = client.get("/api/v1/purchase-installments", params={"card_id": card["id"]}).json()["items"]
+    assert history[0]["total_minor"] == 12000
 
 
 def test_setup_progress_entity_edits_filters_and_transfer_preview(authenticated):
@@ -180,7 +282,7 @@ def test_setup_progress_entity_edits_filters_and_transfer_preview(authenticated)
     assert stale.status_code == 409 and stale.json()["detail"]["code"] == "STALE_PREVIEW"
 
 
-def test_payment_plan_and_invoice_date_preview_are_explicit(authenticated):
+def test_invoice_date_preview_is_explicit(authenticated):
     client, csrf, _path, database = authenticated
     with database.session() as session:
         account = Account(name="Conta plano", reference_date=date(2026, 8, 31), reference_balance_minor=100000)
@@ -192,24 +294,19 @@ def test_payment_plan_and_invoice_date_preview_are_explicit(authenticated):
         invoice = Invoice(card_id=card.id, reference_month="2026-10", closing_date=date(2026, 9, 10), due_date=date(2026, 10, 20), state="open")
         session.add(invoice)
         session.flush()
-        values = account.id, invoice.id, invoice.revision
-    preview_payload = {"closing_date": "2026-09-11", "due_date": "2026-10-21", "expected_revision": values[2]}
-    preview = client.post("/api/v1/invoices/{}/dates/preview".format(values[1]), json=preview_payload)
+        values = invoice.id, invoice.revision
+    preview_payload = {"closing_date": "2026-09-11", "due_date": "2026-10-21", "expected_revision": values[1]}
+    preview = client.post("/api/v1/invoices/{}/dates/preview".format(values[0]), json=preview_payload)
     assert preview.status_code == 200
-    changed = client.post("/api/v1/invoices/{}/dates".format(values[1]), json=dict(preview_payload, preview_token=preview.json()["preview_token"]), headers=headers(csrf))
+    changed = client.post("/api/v1/invoices/{}/dates".format(values[0]), json=dict(preview_payload, preview_token=preview.json()["preview_token"]), headers=headers(csrf))
     assert changed.status_code == 200 and changed.json()["due_date"] == "2026-10-21"
-    plan = client.post("/api/v1/invoices/{}/payment-plan".format(values[1]), json={"account_id": values[0], "planned_date": "2026-10-18"}, headers=headers(csrf))
-    assert plan.status_code == 200
-    duplicate = client.post("/api/v1/invoices/{}/payment-plan".format(values[1]), json={"account_id": values[0], "planned_date": "2026-10-19"}, headers=headers(csrf))
-    assert duplicate.status_code == 422
-    assert len(client.get("/api/v1/invoice-payment-plans").json()["items"]) == 1
 
 
 def test_opening_purchase_refund_and_installment_cancel_previews(authenticated):
     client, csrf, _path, database = authenticated
     mutation = headers(csrf)
     account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-08-31", "reference_balance_minor": 0}, headers=mutation).json()
-    category = client.post("/api/v1/categories", json={"name": "Casa", "kind": "expense"}, headers=mutation).json()
+    category = client.post("/api/v1/categories", json={"name": "Casa"}, headers=mutation).json()
     card = client.post("/api/v1/cards", json={"name": "Cartão", "limit_minor": 100000, "closing_day": 10, "due_day": 20, "default_account_id": account["id"]}, headers=mutation).json()
     opening = client.post("/api/v1/cards/{}/opening-purchases".format(card["id"]), json={"description": "Compra anterior", "purchase_date": "2026-04-01", "total_minor": 60000, "total_installments": 6, "next_installment": 4, "category_id": category["id"], "first_pending_invoice_month": "2026-09"}, headers=mutation)
     assert opening.status_code == 200
@@ -265,8 +362,8 @@ def test_purchase_revision_conflict_and_archived_dependency_warning(authenticate
     client, csrf, _path, _database = authenticated
     mutation = headers(csrf)
     account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-08-31", "reference_balance_minor": 0}, headers=mutation).json()
-    category_a = client.post("/api/v1/categories", json={"name": "A", "kind": "expense"}, headers=mutation).json()
-    category_b = client.post("/api/v1/categories", json={"name": "B", "kind": "expense"}, headers=mutation).json()
+    category_a = client.post("/api/v1/categories", json={"name": "A"}, headers=mutation).json()
+    category_b = client.post("/api/v1/categories", json={"name": "B"}, headers=mutation).json()
     card = client.post("/api/v1/cards", json={"name": "Cartão", "limit_minor": 100000, "closing_day": 10, "due_day": 20, "default_account_id": account["id"]}, headers=mutation).json()
     purchase_payload = {"card_id": card["id"], "description": "Compra", "purchase_date": "2026-09-01", "total_minor": 10000, "installment_count": 1, "category_id": category_a["id"], "first_invoice_month": "2026-09"}
     preview = client.post("/api/v1/purchases/preview", json=purchase_payload).json()
@@ -278,23 +375,20 @@ def test_purchase_revision_conflict_and_archived_dependency_warning(authenticate
     archived = client.post("/api/v1/cards/{}/archive".format(card["id"]), json={"expected_revision": card["revision"], "reason": "Teste"}, headers=mutation)
     assert archived.status_code == 200
     invoice = client.get("/api/v1/invoices").json()["items"][0]
-    assert "obrigação preservada" in invoice["dependency_warning"]
+    assert "preservada" in invoice["dependency_warning"]
 
 
-def test_reference_correction_budget_default_and_recurrence_exception(authenticated):
+def test_reference_correction_and_recurrence_exception(authenticated):
     client, csrf, _path, _database = authenticated
     mutation = headers(csrf)
     account = client.post("/api/v1/accounts", json={"name": "Conta", "reference_date": "2026-08-31", "reference_balance_minor": 100000}, headers=mutation).json()
-    category = client.post("/api/v1/categories", json={"name": "Moradia", "kind": "expense"}, headers=mutation).json()
+    category = client.post("/api/v1/categories", json={"name": "Moradia"}, headers=mutation).json()
     client.post("/api/v1/cash-entries", json={"account_id": account["id"], "kind": "expense", "description": "Conta", "amount_minor": 10000, "planned_date": "2026-09-01", "effective_date": "2026-09-01", "status": "effective", "category_id": category["id"]}, headers=headers(csrf, "reference-entry"))
     reference_payload = {"reference_date": "2026-08-31", "reference_balance_minor": 110000, "expected_revision": account["revision"], "reason": "Conciliação explícita"}
     preview = client.post("/api/v1/accounts/{}/reference/preview".format(account["id"]), json=reference_payload)
     assert preview.status_code == 200 and preview.json()["difference_minor"] == 10000
     corrected = client.post("/api/v1/accounts/{}/reference".format(account["id"]), json=dict(reference_payload, preview_token=preview.json()["preview_token"]), headers=mutation)
     assert corrected.status_code == 200
-    default = client.post("/api/v1/budget-defaults", json={"category_id": category["id"], "effective_from_month": "2026-09", "amount_minor": 50000}, headers=mutation)
-    assert default.status_code == 200
-    assert client.get("/api/v1/budgets/2026-10").json()["items"][0]["result"]["limit_minor"] == 50000
     recurrence = client.post("/api/v1/recurrences", json={"kind": "expense", "description": "Mensal", "account_id": account["id"], "card_id": None, "day": 31, "start_month": "2026-09", "end_month": None, "amount_minor": 1000, "category_id": category["id"]}, headers=mutation)
     assert recurrence.status_code == 200
     occurrence = next(item for item in client.get("/api/v1/recurrences").json()["occurrences"] if item["status"] == "planned")

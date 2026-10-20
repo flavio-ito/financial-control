@@ -37,7 +37,7 @@ try {
   $info = Get-Content -LiteralPath $runtime -Raw | ConvertFrom-Json
   $health = Invoke-RestMethod -Uri ("http://127.0.0.1:{0}/api/v1/health" -f $info.port) -TimeoutSec 10
   if ($health.status -ne 'ok') { throw 'Health check empacotado falhou.' }
-  $spa = Invoke-WebRequest -UseBasicParsing -Uri ("http://127.0.0.1:{0}/planejamento" -f $info.port) -TimeoutSec 10
+  $spa = Invoke-WebRequest -UseBasicParsing -Uri ("http://127.0.0.1:{0}/movimentacoes" -f $info.port) -TimeoutSec 10
   if ($spa.StatusCode -ne 200 -or $spa.Content -notmatch '<div id="root">') { throw 'Fallback SPA empacotado falhou.' }
   try { Invoke-WebRequest -UseBasicParsing -Uri ("http://127.0.0.1:{0}/api/v1/inexistente" -f $info.port) -TimeoutSec 10 | Out-Null; throw 'API inexistente não retornou erro.' } catch { if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw } }
   $second = Start-Process -FilePath (Join-Path $package 'ControleFinanceiroLocal.exe') -WorkingDirectory $package -WindowStyle Hidden -PassThru -Wait

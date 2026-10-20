@@ -4,14 +4,18 @@ export type Account = {
   id: string; name: string; institution: string | null; reference_date: string;
   reference_balance_minor: number; current_balance_minor: number; revision: number; archived_at: string | null;
 };
-export type Category = { id: string; name: string; kind: "income" | "expense"; revision: number; archived_at: string | null };
+export type Category = { id: string; name: string; revision: number; archived_at: string | null };
 export type Card = {
   id: string; name: string; limit_minor: number; closing_day: number; due_day: number;
   default_account_id: string | null; commitment_minor: number; available_estimated_minor: number; revision: number; archived_at: string | null;
 };
 export type CashEntry = {
   id: string; description: string; kind: string; signed_amount_minor: number; planned_date: string;
-  effective_date: string | null; status: string; account_id: string; category_id: string | null; source: string; revision: number;
+  effective_date: string | null; status: string; account_id: string; card_id: string | null; category_id: string | null; note?: string | null; source: string; revision: number;
+};
+export type Investment = {
+  id: string; account_id: string; amount_minor: number; cdi_percentage: number;
+  revision: number; archived_at: string | null;
 };
 export type Invoice = {
   id: string; card_id: string; reference_month: string; closing_date: string; due_date: string;

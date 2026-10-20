@@ -30,7 +30,7 @@ def run_packaged_self_test(data_dir: Path) -> int:
             headers = {"Origin": origin, "X-CSRF-Token": bootstrap.json()["csrf_token"]}
             account = client.post("/api/v1/accounts", json={"name": "Autoteste empacotado", "reference_date": date.today().isoformat(), "reference_balance_minor": 100000}, headers=headers)
             _ok(account, "conta")
-            category = client.post("/api/v1/categories", json={"name": "Autoteste", "kind": "expense"}, headers=headers)
+            category = client.post("/api/v1/categories", json={"name": "Autoteste"}, headers=headers)
             _ok(category, "categoria")
             card = client.post("/api/v1/cards", json={"name": "Cartão autoteste", "limit_minor": 500000, "closing_day": 10, "due_day": 20, "default_account_id": account.json()["id"]}, headers=headers)
             _ok(card, "cartão")
@@ -56,7 +56,7 @@ def run_packaged_self_test(data_dir: Path) -> int:
             restore_preview = client.post("/api/v1/backups/restore/preview", files={"backup": ("self-test.finbackup", exported.content, "application/zip")}, headers=headers)
             _ok(restore_preview, "prévia do restore")
             _ok(client.post("/api/v1/backups/restore/confirm", json={"restore_token": restore_preview.json()["restore_token"]}, headers=headers), "restore")
-            spa = client.get("/planejamento")
+            spa = client.get("/movimentacoes")
             if spa.status_code != 200 or '<div id="root">' not in spa.text:
                 raise RuntimeError("fallback SPA")
             if client.get("/api/v1/inexistente").status_code != 404:

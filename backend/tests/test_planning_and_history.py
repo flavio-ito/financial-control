@@ -4,14 +4,13 @@ import pytest
 
 from app.domain.analytics import compare_months, monthly_summary
 from app.domain.calculations import DomainValidationError
-from app.domain.planning import budget_for_category, card_commitment, projected_cash
+from app.domain.card_commitment import card_commitment
 from app.domain.recurrence import generate_pending_occurrences, version_from_month
 from app.domain.services import (
     archive_entity,
     close_invoice,
     confirm_recurrence_occurrence,
     create_initial_purchase,
-    create_planned_card_purchase,
     create_purchase,
     edit_purchase_category,
     replace_opening_contribution,
@@ -20,15 +19,12 @@ from app.domain.services import (
 )
 from app.storage.models import (
     Account,
-    BudgetDefault,
     Card,
     Category,
     CoverageInterval,
     Installment,
     Invoice,
     InvoiceAdjustment,
-    InvoicePaymentPlan,
-    PlannedCardPurchase,
     Purchase,
     RecurrenceOccurrence,
     RecurrenceRule,
@@ -40,8 +36,8 @@ TODAY = date(2026, 9, 30)
 def base(session):
     a = Account(name="A", reference_date=date(2026, 8, 31), reference_balance_minor=100000)
     b = Account(name="B", reference_date=date(2026, 8, 31), reference_balance_minor=50000)
-    food = Category(name="Alimentação", kind="expense")
-    other = Category(name="Outros", kind="expense")
+    food = Category(name="Alimentação")
+    other = Category(name="Outroe")
     session.add_all([a, b, food, other])
     session.flush()
     card = Card(name="Cartão", limit_minor=200000, closing_day=10, due_day=20, default_account_id=a.id)
@@ -127,36 +123,6 @@ def test_ac10_ac11_ac32_recurrence_generation_confirmation_and_versioning(domain
         assert max(active_counts.values()) == 1
         assert session.query(RecurrenceOccurrence).filter(RecurrenceOccurrence.status == "superseded").count() == 9
         assert session.query(RecurrenceOccurrence).filter(RecurrenceOccurrence.id == occurrence_id).one().status == "confirmed"
-
-
-def test_ac14_budget_uses_planned_only_as_additional(domain_db):
-    with domain_db.session() as session:
-        _a, _b, card, food, _other = base(session)
-        session.add(BudgetDefault(category_id=food.id, effective_from_month="2026-01", amount_minor=60000))
-        create_purchase(session, card.id, "Confirmada", date(2026, 9, 1), 40000, 1, food.id, "2026-09", TODAY)
-        create_planned_card_purchase(session, card.id, "Prevista", food.id, date(2026, 9, 15), 25000, "2026-09")
-        category_id = food.id
-    with domain_db.session() as session:
-        result = budget_for_category(session, category_id, "2026-09")
-        assert (result.registered_minor, result.additional_planned_minor, result.projected_minor, result.status) == (40000, 25000, 65000, "risk")
-
-
-def test_ac35_payment_plan_replaces_account_and_date_without_duplicate(domain_db):
-    with domain_db.session() as session:
-        a, b, card, food, _other = base(session)
-        create_purchase(session, card.id, "Compra", date(2026, 9, 1), 50000, 1, food.id, "2026-10", TODAY)
-        invoice = session.query(Invoice).filter(Invoice.reference_month == "2026-10").one()
-        ids = a.id, b.id, invoice.id
-    with domain_db.session() as session:
-        derived = projected_cash(session, TODAY, "2026-10")
-        assert derived["projected_minor"] == 100000
-        assert len([item for item in derived["items"] if item.key.startswith("invoice:")]) == 1
-        session.add(InvoicePaymentPlan(invoice_id=ids[2], account_id=ids[1], planned_date=date(2026, 10, 15), status="active"))
-    with domain_db.session() as session:
-        explicit = projected_cash(session, TODAY, "2026-10")
-        invoice_item = [item for item in explicit["items"] if item.key.startswith("invoice:")][0]
-        assert explicit["projected_minor"] == 100000
-        assert (invoice_item.account_id, invoice_item.date, invoice_item.source) == (ids[1], date(2026, 10, 15), "invoice_payment_plan")
 
 
 def test_ac19_partial_coverage_suppresses_reliable_comparison(domain_db):

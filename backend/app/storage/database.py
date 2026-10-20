@@ -1,13 +1,17 @@
 from contextlib import contextmanager
 from pathlib import Path
-from threading import RLock
+from threading import Lock
 from typing import Generator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-financial_write_lock = RLock()
+# FastAPI may enter and finalize a synchronous yield dependency on different
+# worker threads.  A Lock can be released by the finalizer in that situation;
+# an RLock is owned by the acquiring thread and can leave every later write
+# waiting forever.
+financial_write_lock = Lock()
 
 
 def create_sqlite_engine(database_path: Path) -> Engine:

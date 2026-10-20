@@ -7,7 +7,7 @@ import zipfile
 
 import pytest
 
-from app.maintenance.backup import BackupError, create_finbackup, restore_finbackup, validate_finbackup
+from app.maintenance.backup import BackupError, create_finbackup, ensure_daily_backup, restore_finbackup, validate_finbackup
 from app.storage.models import Account
 
 
@@ -79,6 +79,19 @@ def test_restore_rolls_back_if_failure_happens_after_database_replacement(domain
         restore_finbackup(domain_db, archive, domain_db.path.parent, inject_failure=fail)
     assert account_names(domain_db) == ["Atual", "No backup"]
     assert_database_healthy(domain_db.path)
+
+
+def test_daily_backup_uses_revision_in_filename_and_preserves_older_revision(domain_db, tmp_path):
+    directory = tmp_path / "daily"
+    legacy = directory / "daily-2026-10-18.finbackup"
+    directory.mkdir()
+    create_finbackup(domain_db.path, legacy)
+
+    result = ensure_daily_backup(domain_db.path, directory)
+
+    assert result.path != legacy
+    assert result.path.name.endswith("-0006_remove_category_kind.finbackup")
+    assert legacy.exists()
 
 
 def test_backup_api_requires_preview_and_explicit_confirmation(authenticated):

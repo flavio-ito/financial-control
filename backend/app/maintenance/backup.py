@@ -148,8 +148,9 @@ def verify_database(database_path: Path, expected_revision: str) -> None:
 def ensure_daily_backup(database_path: Path, backup_directory: Path) -> ValidatedBackup:
     backup_directory.mkdir(parents=True, exist_ok=True)
     today = datetime.now(timezone.utc).date().isoformat()
-    destination = backup_directory / "daily-{}.finbackup".format(today)
-    result = validate_finbackup(destination, database_revision(database_path)) if destination.exists() else create_finbackup(database_path, destination)
+    revision = database_revision(database_path)
+    destination = backup_directory / "daily-{}-{}.finbackup".format(today, revision)
+    result = validate_finbackup(destination, revision) if destination.exists() else create_finbackup(database_path, destination)
     daily = sorted(backup_directory.glob("daily-*.finbackup"), reverse=True)
     for expired in daily[30:]:
         expired.unlink()

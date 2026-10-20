@@ -107,6 +107,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/investments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Investment Settings */
+        get: operations["investment_settings_api_v1_settings_investments_get"];
+        /** Update Investment Settings */
+        put: operations["update_investment_settings_api_v1_settings_investments_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts": {
         parameters: {
             query?: never;
@@ -314,6 +332,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/investments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Investments */
+        get: operations["investments_api_v1_investments_get"];
+        put?: never;
+        /** Add Investment */
+        post: operations["add_investment_api_v1_investments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investment-yields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Investment Yields */
+        get: operations["investment_yields_api_v1_investment_yields_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investment-withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Investment Withdrawal */
+        post: operations["add_investment_withdrawal_api_v1_investment_withdrawals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investments/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit Investment */
+        put: operations["edit_investment_api_v1_investments__entity_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investments/{entity_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Investment */
+        post: operations["archive_investment_api_v1_investments__entity_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cash-entries": {
         parameters: {
             query?: never;
@@ -326,6 +430,23 @@ export interface paths {
         put?: never;
         /** Add Cash Entry */
         post: operations["add_cash_entry_api_v1_cash_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cash-entries/installments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Cash Entry Installments */
+        post: operations["add_cash_entry_installments_api_v1_cash_entries_installments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -470,6 +591,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/purchase-installments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Purchase Installments */
+        get: operations["purchase_installments_api_v1_purchase_installments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/purchases/{purchase_id}": {
         parameters: {
             query?: never;
@@ -515,75 +653,6 @@ export interface paths {
         put?: never;
         /** Purchase Category */
         post: operations["purchase_category_api_v1_purchases__purchase_id__category_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/planned-purchases": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Planned Purchases */
-        get: operations["planned_purchases_api_v1_planned_purchases_get"];
-        put?: never;
-        /** Add Planned */
-        post: operations["add_planned_api_v1_planned_purchases_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/planned-purchases/{planned_id}/preview-confirmation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Preview Planned Confirmation */
-        post: operations["preview_planned_confirmation_api_v1_planned_purchases__planned_id__preview_confirmation_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/planned-purchases/{planned_id}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm Planned */
-        post: operations["confirm_planned_api_v1_planned_purchases__planned_id__confirm_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/planned-purchases/{planned_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cancel Planned */
-        post: operations["cancel_planned_api_v1_planned_purchases__planned_id__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -720,57 +789,6 @@ export interface paths {
         put?: never;
         /** Pay */
         post: operations["pay_api_v1_invoices__invoice_id__payments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoices/{invoice_id}/payment-plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Plan Payment */
-        post: operations["plan_payment_api_v1_invoices__invoice_id__payment_plan_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoice-payment-plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Payment Plans */
-        get: operations["payment_plans_api_v1_invoice_payment_plans_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/invoice-payment-plans/{plan_id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Cancel Plan */
-        post: operations["cancel_plan_api_v1_invoice_payment_plans__plan_id__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -930,41 +948,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/budgets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Set Budget */
-        post: operations["set_budget_api_v1_budgets_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/budget-defaults": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Budget Defaults */
-        get: operations["budget_defaults_api_v1_budget_defaults_get"];
-        put?: never;
-        /** Set Budget Default */
-        post: operations["set_budget_default_api_v1_budget_defaults_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/recurrences": {
         parameters: {
             query?: never;
@@ -1069,15 +1052,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/budgets/{month}": {
+    "/api/v1/reports/overview": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Budgets */
-        get: operations["budgets_api_v1_budgets__month__get"];
+        /** Overview Report */
+        get: operations["overview_report_api_v1_reports_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/future-balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Future Balance */
+        get: operations["future_balance_api_v1_reports_future_balance_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1095,23 +1095,6 @@ export interface paths {
         };
         /** Monthly */
         get: operations["monthly_api_v1_reports_monthly__month__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/reports/projection": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Projection */
-        get: operations["projection_api_v1_reports_projection_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1261,24 +1244,6 @@ export interface components {
             /** Token */
             token: string;
         };
-        /** BudgetDefaultSet */
-        BudgetDefaultSet: {
-            /** Category Id */
-            category_id: string;
-            /** Effective From Month */
-            effective_from_month: string;
-            /** Amount Minor */
-            amount_minor: number;
-        };
-        /** BudgetSet */
-        BudgetSet: {
-            /** Category Id */
-            category_id: string;
-            /** Month */
-            month: string;
-            /** Amount Minor */
-            amount_minor: number;
-        };
         /** CardCreate */
         CardCreate: {
             /** Name */
@@ -1345,6 +1310,44 @@ export interface components {
             /** Note */
             note?: string;
         };
+        /** CashEntryInstallmentCreate */
+        CashEntryInstallmentCreate: {
+            /** Account Id */
+            account_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "income" | "expense" | "balance_adjustment";
+            /** Description */
+            description: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Planned Date
+             * Format: date
+             */
+            planned_date: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "planned" | "effective";
+            /**
+             * Effective Date
+             * Format: date
+             */
+            effective_date?: string;
+            /** Category Id */
+            category_id?: string;
+            /** Note */
+            note?: string;
+            /**
+             * Installment Count
+             * @default 1
+             */
+            installment_count: number;
+        };
         /** CashEntryUpdate */
         CashEntryUpdate: {
             /** Account Id */
@@ -1386,11 +1389,6 @@ export interface components {
         CategoryCreate: {
             /** Name */
             name: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "income" | "expense";
         };
         /** CategoryUpdate */
         CategoryUpdate: {
@@ -1467,6 +1465,45 @@ export interface components {
             /** Preview Token */
             preview_token?: string;
         };
+        /** InvestmentCreate */
+        InvestmentCreate: {
+            /** Account Id */
+            account_id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Cdi Percentage */
+            cdi_percentage: number;
+        };
+        /** InvestmentSettingsUpdate */
+        InvestmentSettingsUpdate: {
+            /** Cdi Annual Rate Bps */
+            cdi_annual_rate_bps: number;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** InvestmentUpdate */
+        InvestmentUpdate: {
+            /** Account Id */
+            account_id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /** Cdi Percentage */
+            cdi_percentage: number;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** InvestmentWithdrawalCreate */
+        InvestmentWithdrawalCreate: {
+            /** Investment Id */
+            investment_id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Withdrawal Date
+             * Format: date
+             */
+            withdrawal_date: string;
+        };
         /** InvoiceAdjustmentCreate */
         InvoiceAdjustmentCreate: {
             /** Signed Amount Minor */
@@ -1512,16 +1549,6 @@ export interface components {
             /** Preview Token */
             preview_token: string;
         };
-        /** InvoicePlanCreate */
-        InvoicePlanCreate: {
-            /** Account Id */
-            account_id: string;
-            /**
-             * Planned Date
-             * Format: date
-             */
-            planned_date: string;
-        };
         /** OccurrenceConfirm */
         OccurrenceConfirm: {
             /**
@@ -1562,40 +1589,6 @@ export interface components {
             reversal_date: string;
             /** Reason */
             reason: string;
-        };
-        /** PlannedPurchaseConfirm */
-        PlannedPurchaseConfirm: {
-            /**
-             * Purchase Date
-             * Format: date
-             */
-            purchase_date: string;
-            /** Total Minor */
-            total_minor: number;
-            /** Installment Count */
-            installment_count: number;
-            /** First Invoice Month */
-            first_invoice_month?: string;
-            /** Preview Token */
-            preview_token: string;
-        };
-        /** PlannedPurchaseCreate */
-        PlannedPurchaseCreate: {
-            /** Card Id */
-            card_id: string;
-            /** Description */
-            description: string;
-            /** Category Id */
-            category_id?: string;
-            /**
-             * Expected Date
-             * Format: date
-             */
-            expected_date: string;
-            /** Expected Amount Minor */
-            expected_amount_minor: number;
-            /** Estimated Invoice Month */
-            estimated_invoice_month?: string;
         };
         /** PurchaseCategoryUpdate */
         PurchaseCategoryUpdate: {
@@ -2015,6 +2008,75 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SetupUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    investment_settings_api_v1_settings_investments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_investment_settings_api_v1_settings_investments_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestmentSettingsUpdate"];
             };
         };
         responses: {
@@ -2610,18 +2672,247 @@ export interface operations {
             };
         };
     };
+    investments_api_v1_investments_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_investment_api_v1_investments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    investment_yields_api_v1_investment_yields_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                date_from?: string;
+                date_to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_investment_withdrawal_api_v1_investment_withdrawals_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestmentWithdrawalCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_investment_api_v1_investments__entity_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_investment_api_v1_investments__entity_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cash_entries_api_v1_cash_entries_get: {
         parameters: {
             query?: {
                 page?: number;
                 page_size?: number;
                 account_id?: string;
+                card_id?: string;
                 category_id?: string;
                 status?: string;
                 source?: string;
                 date_from?: string;
                 date_to?: string;
                 search?: string;
+                investment_only?: boolean;
+                active_only?: boolean;
             };
             header?: never;
             path?: never;
@@ -2667,6 +2958,45 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CashEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_cash_entry_installments_api_v1_cash_entries_installments_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CashEntryInstallmentCreate"];
             };
         };
         responses: {
@@ -3072,6 +3402,45 @@ export interface operations {
             };
         };
     };
+    purchase_installments_api_v1_purchase_installments_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                account_id?: string;
+                card_id?: string;
+                category_id?: string;
+                date_from?: string;
+                date_to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     purchase_detail_api_v1_purchases__purchase_id__get: {
         parameters: {
             query?: never;
@@ -3162,195 +3531,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PurchaseCategoryUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    planned_purchases_api_v1_planned_purchases_get: {
-        parameters: {
-            query?: {
-                status?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_planned_api_v1_planned_purchases_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlannedPurchaseCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    preview_planned_confirmation_api_v1_planned_purchases__planned_id__preview_confirmation_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                planned_id: string;
-            };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PurchaseInput"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    confirm_planned_api_v1_planned_purchases__planned_id__confirm_post: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path: {
-                planned_id: string;
-            };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlannedPurchaseConfirm"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cancel_planned_api_v1_planned_purchases__planned_id__cancel_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path: {
-                planned_id: string;
-            };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TransitionRequest"];
             };
         };
         responses: {
@@ -3652,117 +3832,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["InvoicePaymentRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    plan_payment_api_v1_invoices__invoice_id__payment_plan_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path: {
-                invoice_id: string;
-            };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InvoicePlanCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    payment_plans_api_v1_invoice_payment_plans_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    cancel_plan_api_v1_invoice_payment_plans__plan_id__cancel_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path: {
-                plan_id: string;
-            };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TransitionRequest"];
             };
         };
         responses: {
@@ -4137,113 +4206,6 @@ export interface operations {
             };
         };
     };
-    set_budget_api_v1_budgets_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BudgetSet"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    budget_defaults_api_v1_budget_defaults_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_budget_default_api_v1_budget_defaults_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-CSRF-Token"?: string;
-                Origin?: string;
-            };
-            path?: never;
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BudgetDefaultSet"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     recurrences_api_v1_recurrences_get: {
         parameters: {
             query?: never;
@@ -4543,13 +4505,50 @@ export interface operations {
             };
         };
     };
-    budgets_api_v1_budgets__month__get: {
+    overview_report_api_v1_reports_overview_get: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                month: string;
+            query: {
+                date_from: string;
+                date_to: string;
+                account_id?: string;
+                card_id?: string;
+                category_id?: string;
             };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    future_balance_api_v1_reports_future_balance_get: {
+        parameters: {
+            query?: {
+                account_id?: string;
+            };
+            header?: never;
+            path?: never;
             cookie?: {
                 financas_session?: string;
             };
@@ -4585,39 +4584,6 @@ export interface operations {
             path: {
                 month: string;
             };
-            cookie?: {
-                financas_session?: string;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    projection_api_v1_reports_projection_get: {
-        parameters: {
-            query: {
-                through_month: string;
-            };
-            header?: never;
-            path?: never;
             cookie?: {
                 financas_session?: string;
             };

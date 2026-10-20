@@ -13,7 +13,6 @@ from app.storage.models import (
     Card,
     Category,
     Invoice,
-    InvoicePaymentPlan,
     RecurrenceOccurrence,
     RecurrenceRule,
 )
@@ -22,21 +21,20 @@ EXPECTED_TABLES = {
     "settings",
     "accounts",
     "cards",
+    "investments",
+    "investment_yields",
+    "investment_withdrawals",
     "categories",
     "cash_entries",
     "transfers",
-    "planned_card_purchases",
     "purchases",
     "installments",
     "invoices",
     "invoice_adjustments",
-    "invoice_payment_plans",
     "payments",
     "refunds",
     "recurrence_rules",
     "recurrence_occurrences",
-    "budget_defaults",
-    "budgets",
     "coverage_intervals",
     "idempotency_records",
     "audit_events",
@@ -55,7 +53,7 @@ def domain_db(tmp_path):
 
 def seed_account_card_category(session):
     account = Account(name="Conta sintética", reference_date=date(2026, 8, 31), reference_balance_minor=100000)
-    category = Category(name="Categoria sintética", kind="expense")
+    category = Category(name="Categoria sintética")
     session.add_all([account, category])
     session.flush()
     card = Card(name="Cartão sintético", limit_minor=500000, closing_day=10, due_day=20, default_account_id=account.id)
@@ -67,9 +65,11 @@ def seed_account_card_category(session):
 def test_migration_contains_all_contract_tables_and_indexes(domain_db):
     inspector = inspect(domain_db.engine)
     assert EXPECTED_TABLES.issubset(set(inspector.get_table_names()))
-    assert current_revision(domain_db.path) == head_revision(domain_db.path) == "0002_domain_schema"
+    assert current_revision(domain_db.path) == head_revision(domain_db.path) == "0006_remove_category_kind"
+    assert "kind" not in {column["name"] for column in inspector.get_columns("categories")}
     assert any(index["name"] == "ix_cash_entries_account_date" for index in inspector.get_indexes("cash_entries"))
     assert any(index["name"] == "uq_active_recurrence_series_month" for index in inspector.get_indexes("recurrence_occurrences"))
+    assert any(index["name"] == "ix_investments_account" for index in inspector.get_indexes("investments"))
 
 
 def test_upgrade_preserves_existing_settings(tmp_path):
@@ -101,24 +101,12 @@ def test_foreign_keys_and_safe_money_are_database_constraints(domain_db):
         session.add(Account(name="Fora do limite", reference_date=date(2026, 8, 31), reference_balance_minor=9007199254740992))
 
 
-def test_unique_invoice_and_active_payment_plan(domain_db):
+def test_unique_invoice(domain_db):
     with domain_db.session() as session:
-        account, card, _category = seed_account_card_category(session)
+        _account, card, _category = seed_account_card_category(session)
         invoice = Invoice(card_id=card.id, reference_month="2026-09", closing_date=date(2026, 9, 10), due_date=date(2026, 9, 20))
         session.add(invoice)
         session.flush()
-        session.add(InvoicePaymentPlan(invoice_id=invoice.id, account_id=account.id, planned_date=date(2026, 9, 20)))
-    with pytest.raises(IntegrityError), domain_db.session() as session:
-        invoice = session.query(Invoice).one()
-        account = session.query(Account).one()
-        session.add(InvoicePaymentPlan(invoice_id=invoice.id, account_id=account.id, planned_date=date(2026, 9, 19)))
-    with domain_db.session() as session:
-        current = session.query(InvoicePaymentPlan).one()
-        current.status = "cancelled"
-    with domain_db.session() as session:
-        invoice = session.query(Invoice).one()
-        account = session.query(Account).one()
-        session.add(InvoicePaymentPlan(invoice_id=invoice.id, account_id=account.id, planned_date=date(2026, 9, 19)))
     with pytest.raises(IntegrityError), domain_db.session() as session:
         card = session.query(Card).one()
         session.add(Invoice(card_id=card.id, reference_month="2026-09", closing_date=date(2026, 9, 10), due_date=date(2026, 9, 20)))
@@ -147,8 +135,8 @@ def test_one_active_occurrence_per_series_month(domain_db):
 
 def test_authoritative_state_machines_accept_only_declared_transitions():
     assert set(TRANSITIONS) == {
-        "cash_entries", "transfers", "planned_card_purchases", "purchases", "invoices",
-        "payments", "refunds", "recurrence_occurrences", "invoice_payment_plans",
+        "cash_entries", "transfers", "purchases", "invoices",
+        "payments", "refunds", "recurrence_occurrences",
     }
     ensure_transition("cash_entries", "planned", "effective")
     ensure_transition("transfers", "effective", "reversed")

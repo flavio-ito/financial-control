@@ -20,7 +20,12 @@ PositiveMoney = Field(..., ge=1, le=SAFE_INTEGER_MAX)
 
 
 class SetupUpdate(BaseModel):
-    setup_step: int = Field(..., ge=0, le=8)
+    setup_step: int = Field(..., ge=0, le=6)
+
+
+class InvestmentSettingsUpdate(BaseModel):
+    cdi_annual_rate_bps: int = Field(..., ge=0, le=100000)
+    expected_revision: int = Field(..., ge=1)
 
 
 class AccountCreate(MoneyModel):
@@ -46,7 +51,6 @@ class AccountReferenceUpdate(MoneyModel):
 
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
-    kind: Literal["income", "expense"]
 
 
 class CategoryUpdate(BaseModel):
@@ -69,6 +73,22 @@ class CardUpdate(MoneyModel):
     expected_revision: int = Field(..., ge=1)
 
 
+class InvestmentCreate(MoneyModel):
+    account_id: str
+    amount_minor: int = Money
+    cdi_percentage: int = Field(..., ge=0, le=100000)
+
+
+class InvestmentUpdate(InvestmentCreate):
+    expected_revision: int = Field(..., ge=1)
+
+
+class InvestmentWithdrawalCreate(MoneyModel):
+    investment_id: str
+    amount_minor: int = PositiveMoney
+    withdrawal_date: date
+
+
 class CashEntryCreate(MoneyModel):
     account_id: str
     kind: Literal["income", "expense", "balance_adjustment"]
@@ -81,9 +101,12 @@ class CashEntryCreate(MoneyModel):
     note: Optional[str] = None
 
 
+class CashEntryInstallmentCreate(CashEntryCreate):
+    installment_count: int = Field(1, ge=1, le=120)
+
+
 class CashEntryUpdate(CashEntryCreate):
     expected_revision: int = Field(..., ge=1)
-    reason: str = Field(..., min_length=1)
 
 
 class TransitionRequest(BaseModel):
@@ -125,21 +148,8 @@ class PurchaseConfirm(PurchaseInput):
     preview_token: str = Field(..., min_length=64, max_length=64)
 
 
-class PlannedPurchaseCreate(MoneyModel):
-    card_id: str
-    description: str = Field(..., min_length=1, max_length=240)
-    category_id: Optional[str] = None
-    expected_date: date
-    expected_amount_minor: int = PositiveMoney
-    estimated_invoice_month: Optional[str] = Field(None, regex=r"^\d{4}-(0[1-9]|1[0-2])$")
-
-
-class PlannedPurchaseConfirm(MoneyModel):
-    purchase_date: date
-    total_minor: int = PositiveMoney
-    installment_count: int = Field(..., ge=1)
-    first_invoice_month: Optional[str] = Field(None, regex=r"^\d{4}-(0[1-9]|1[0-2])$")
-    preview_token: str = Field(..., min_length=64, max_length=64)
+class PurchaseUpdate(PurchaseInput):
+    expected_revision: int = Field(..., ge=1)
 
 
 class InvoicePaymentRequest(MoneyModel):
@@ -147,11 +157,6 @@ class InvoicePaymentRequest(MoneyModel):
     paid_date: date
     amount_minor: int = Money
     preview_token: str = Field(..., min_length=64, max_length=64)
-
-
-class InvoicePlanCreate(BaseModel):
-    account_id: str
-    planned_date: date
 
 
 class InvoiceDatesUpdate(BaseModel):
@@ -171,18 +176,6 @@ class RefundCreate(MoneyModel):
     target_id: str
     reason: str = Field(..., min_length=1)
     preview_token: Optional[str] = Field(None, min_length=64, max_length=64)
-
-
-class BudgetSet(MoneyModel):
-    category_id: str
-    month: str = Field(..., regex=r"^\d{4}-(0[1-9]|1[0-2])$")
-    amount_minor: int = Money
-
-
-class BudgetDefaultSet(MoneyModel):
-    category_id: str
-    effective_from_month: str = Field(..., regex=r"^\d{4}-(0[1-9]|1[0-2])$")
-    amount_minor: int = Money
 
 
 class CardTermsUpdate(BaseModel):

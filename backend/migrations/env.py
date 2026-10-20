@@ -30,11 +30,19 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        # SQLite implements ALTER TABLE through table recreation. Foreign keys
+        # must be disabled outside the migration transaction while Alembic
+        # replaces a referenced table (for example, categories in revision
+        # 0006), otherwise DROP TABLE fails when the database contains data.
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
         connection.exec_driver_sql("PRAGMA busy_timeout=5000")
         context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
         with context.begin_transaction():
             context.run_migrations()
+        violations = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise RuntimeError("Foreign key violations after migration: {}".format(violations))
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 if context.is_offline_mode():

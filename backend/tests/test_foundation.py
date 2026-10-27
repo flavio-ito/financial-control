@@ -67,6 +67,19 @@ def test_spa_fallback_never_captures_api(app_client):
     assert "SPA" not in response.text
 
 
+def test_root_logo_is_served_as_png_instead_of_spa_fallback(app_client):
+    client, _token, _path, _database = app_client
+    static_dir = client.app.state.data_directory.parent / "static"
+    # The fixture's configured static directory is a sibling of the data directory.
+    (static_dir / "capy_logo.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    response = client.get("/capy_logo.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == b"\x89PNG\r\n\x1a\n"
+
+
 def test_database_passes_integrity_checks(app_client):
     _client, _token, path, _database = app_client
     with sqlite3.connect(str(path)) as connection:

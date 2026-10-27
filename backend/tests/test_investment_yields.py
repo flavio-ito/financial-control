@@ -30,12 +30,12 @@ def test_materialization_is_daily_compound_and_idempotent(domain_db):
     with domain_db.session() as session:
         assert materialize_daily_yields(session, date(2026, 10, 18)) == 3
         assert session.query(InvestmentYield).count() == 3
-        assert session.query(CashEntry).count() == 3
+        assert session.query(CashEntry).count() == 0
         investment = session.query(Investment).one()
         assert investment.amount_minor > 1_000_000
-        assert balance_for_account(session, investment.account_id, date(2026, 10, 18)) == investment.amount_minor - 1_000_000
+        assert balance_for_account(session, investment.account_id, date(2026, 10, 18)) == 0
 
     with domain_db.session() as session:
         assert materialize_daily_yields(session, date(2026, 10, 18)) == 0
         assert session.query(InvestmentYield).count() == 3
-        assert session.query(CashEntry).count() == 3
+        assert session.query(CashEntry).count() == 0

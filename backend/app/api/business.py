@@ -17,6 +17,7 @@ from app.api.schemas import (
     CardCreate,
     CardUpdate,
     InvestmentCreate,
+    InvestmentContributionCreate,
     InvestmentSettingsUpdate,
     InvestmentWithdrawalCreate,
     InvestmentUpdate,
@@ -47,6 +48,10 @@ from app.api.schemas import (
     InitialPurchaseCreate,
     OpeningReplacement,
     SetupUpdate,
+    PlannedCardPurchaseCreate,
+    InvoicePaymentPlanCreate,
+    BudgetUpsert,
+    BudgetDefaultCreate,
 )
 from app.api.security import require_mutation, require_session
 from app.domain.analytics import compare_months, coverage_status, monthly_summary
@@ -81,8 +86,8 @@ from app.domain.services import (
 )
 from app.domain.investments import materialize_daily_yields
 from app.domain.recurrence import generate_rule_occurrences, version_from_month
-from app.domain.calculations import add_months, limited_date, month_of, split_installments
-from app.storage.models import Account, Card, CashEntry, Category, CoverageInterval, Installment, Investment, InvestmentWithdrawal, InvestmentYield, Invoice, InvoiceAdjustment, Payment, Purchase, RecurrenceOccurrence, RecurrenceRule, Refund, Setting, Transfer
+from app.domain.calculations import add_months, budget_result, limited_date, month_of, parse_month, split_installments, suggest_invoice_month
+from app.storage.models import Account, Card, CashEntry, Category, CoverageInterval, ImportCategoryRule, Installment, Investment, InvestmentContribution, InvestmentWithdrawal, InvestmentYield, Invoice, InvoiceAdjustment, InvoicePaymentPlan, Payment, PlannedCardPurchase, Purchase, RecurrenceOccurrence, RecurrenceRule, Refund, Setting, Transfer, Budget, BudgetDefault
 
 
 class StalePreview(Exception):
@@ -189,8 +194,7 @@ def business_router() -> APIRouter:
         return {"cdi_annual_rate_bps": settings.cdi_annual_rate_bps, "revision": settings.revision}
 
     @router.get("/accounts")
-    def accounts(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), include_archived: bool = False, session: Session = Depends(get_mutation_session)):
-        materialize_daily_yields(session, date.today())
+    def accounts(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), include_archived: bool = False, session: Session = Depends(get_session)):
         query = session.query(Account).order_by(Account.name)
         if not include_archived:
             query = query.filter(Account.archived_at.is_(None))
@@ -266,6 +270,24 @@ def business_router() -> APIRouter:
     def edit_category(entity_id: str, payload: CategoryUpdate, session: Session = Depends(get_mutation_session)):
         return entity_dict(update_named_entity(session, Category, entity_id, payload.expected_revision, name=payload.name))
 
+    @router.delete("/categories/{entity_id}", dependencies=[Depends(require_mutation)])
+    def delete_category(entity_id: str, payload: TransitionRequest, session: Session = Depends(get_mutation_session)):
+        category = session.query(Category).filter(Category.id == entity_id).one_or_none()
+        if category is None:
+            raise DomainValidationError("Categoria não encontrada.")
+        ensure_revision(category, payload.expected_revision)
+        before = entity_dict(category)
+        session.query(CashEntry).filter(CashEntry.category_id == entity_id).update({CashEntry.category_id: None}, synchronize_session=False)
+        session.query(Purchase).filter(Purchase.category_id == entity_id).update({Purchase.category_id: None}, synchronize_session=False)
+        session.query(Installment).filter(Installment.category_id_snapshot == entity_id).update({Installment.category_id_snapshot: None}, synchronize_session=False)
+        session.query(InvoiceAdjustment).filter(InvoiceAdjustment.category_id == entity_id).update({InvoiceAdjustment.category_id: None}, synchronize_session=False)
+        session.query(RecurrenceRule).filter(RecurrenceRule.category_id == entity_id).update({RecurrenceRule.category_id: None}, synchronize_session=False)
+        session.query(ImportCategoryRule).filter(ImportCategoryRule.category_id == entity_id).delete(synchronize_session=False)
+        audit(session, "category", entity_id, "deleted", before=before, reason=payload.reason)
+        session.delete(category)
+        session.flush()
+        return {"deleted": True, "id": entity_id}
+
     @router.get("/cards")
     def cards(include_archived: bool = False, session: Session = Depends(get_session)):
         query = session.query(Card).order_by(Card.name)
@@ -303,26 +325,28 @@ def business_router() -> APIRouter:
         return entity_dict(update_card_terms(session, entity_id, payload.closing_day, payload.due_day, payload.expected_revision))
 
     @router.get("/investments")
-    def investments(include_archived: bool = False, session: Session = Depends(get_mutation_session)):
-        materialize_daily_yields(session, date.today())
+    def investments(include_archived: bool = False, session: Session = Depends(get_session)):
         query = session.query(Investment).order_by(Investment.created_at.desc())
         if not include_archived:
             query = query.filter(Investment.archived_at.is_(None))
         return {"items": [entity_dict(item) for item in query.all()]}
 
     @router.get("/investment-yields")
-    def investment_yields(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), date_from: Optional[date] = None, date_to: Optional[date] = None, session: Session = Depends(get_mutation_session)):
-        materialize_daily_yields(session, date.today())
+    def investment_yields(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), date_from: Optional[date] = None, date_to: Optional[date] = None, session: Session = Depends(get_session)):
         yields_query = session.query(InvestmentYield)
         withdrawals_query = session.query(InvestmentWithdrawal)
+        contributions_query = session.query(InvestmentContribution)
         if date_from:
             yields_query = yields_query.filter(InvestmentYield.yield_date >= date_from)
             withdrawals_query = withdrawals_query.filter(InvestmentWithdrawal.withdrawal_date >= date_from)
+            contributions_query = contributions_query.filter(InvestmentContribution.contribution_date >= date_from)
         if date_to:
             yields_query = yields_query.filter(InvestmentYield.yield_date <= date_to)
             withdrawals_query = withdrawals_query.filter(InvestmentWithdrawal.withdrawal_date <= date_to)
+            contributions_query = contributions_query.filter(InvestmentContribution.contribution_date <= date_to)
         yields = yields_query.all()
         withdrawals = withdrawals_query.all()
+        contributions = contributions_query.all()
         items = [{
             "id": item.id,
             "investment_id": item.investment_id,
@@ -357,10 +381,71 @@ def business_router() -> APIRouter:
             "balance_before_minor": item.balance_before_minor,
             "balance_after_minor": item.balance_after_minor,
         } for item in withdrawals)
+        items.extend({
+            "id": item.id,
+            "investment_id": item.investment_id,
+            "account_id": item.account_id,
+            "description": "Aporte em investimento",
+            "kind": "balance_adjustment",
+            "signed_amount_minor": item.amount_minor,
+            "planned_date": item.contribution_date,
+            "effective_date": item.contribution_date,
+            "status": "effective",
+            "category_id": None,
+            "source": "investment_contribution",
+            "revision": item.revision,
+            "balance_before_minor": item.balance_before_minor,
+            "balance_after_minor": item.balance_after_minor,
+        } for item in contributions)
         items.sort(key=lambda item: (item["planned_date"], item["id"]), reverse=True)
         total = len(items)
         start = (page - 1) * page_size
-        return {"items": items[start:start + page_size], "page": page, "page_size": page_size, "total": total}
+        income_minor = sum(item.amount_minor for item in yields)
+        withdrawal_minor = sum(item.amount_minor for item in withdrawals)
+        series_dates = sorted({item["effective_date"] or item["planned_date"] for item in items})
+        investments = session.query(Investment).all()
+        portfolio_events = {}
+        for investment in investments:
+            investment_events = [
+                (item.yield_date, item.created_at, item.balance_before_minor, item.balance_after_minor)
+                for item in session.query(InvestmentYield).filter(InvestmentYield.investment_id == investment.id).all()
+            ]
+            investment_events.extend(
+                (item.withdrawal_date, item.created_at, item.balance_before_minor, item.balance_after_minor)
+                for item in session.query(InvestmentWithdrawal).filter(InvestmentWithdrawal.investment_id == investment.id).all()
+            )
+            investment_events.extend(
+                (item.contribution_date, item.created_at, item.balance_before_minor, item.balance_after_minor)
+                for item in session.query(InvestmentContribution).filter(InvestmentContribution.investment_id == investment.id).all()
+            )
+            portfolio_events[investment.id] = sorted(investment_events, key=lambda event: (event[0], event[1]))
+
+        series = []
+        for series_date in series_dates:
+            portfolio_minor = 0
+            for investment in investments:
+                investment_events = portfolio_events[investment.id]
+                if not investment_events and investment.created_at.date() > series_date:
+                    continue
+                previous_events = [event for event in investment_events if event[0] <= series_date]
+                if previous_events:
+                    portfolio_minor += previous_events[-1][3]
+                else:
+                    future_events = [event for event in investment_events if event[0] > series_date]
+                    portfolio_minor += future_events[0][2] if future_events else investment.amount_minor
+            series.append({"date": series_date, "portfolio_minor": portfolio_minor})
+        return {
+            "items": items[start:start + page_size],
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "summary": {
+                "income_minor": income_minor,
+                "withdrawal_minor": withdrawal_minor,
+                "net_minor": income_minor - withdrawal_minor,
+            },
+            "series": series,
+        }
 
     @router.post("/investment-withdrawals", dependencies=[Depends(require_mutation)])
     def add_investment_withdrawal(payload: InvestmentWithdrawalCreate, idempotency_key: str = Header(..., alias="Idempotency-Key"), session: Session = Depends(get_mutation_session)):
@@ -374,9 +459,9 @@ def business_router() -> APIRouter:
             before = investment.amount_minor
             entry = CashEntry(
                 account_id=investment.account_id,
-                kind="expense",
+                kind="balance_adjustment",
                 description="Saque de investimento",
-                signed_amount_minor=-payload.amount_minor,
+                signed_amount_minor=payload.amount_minor,
                 planned_date=payload.withdrawal_date,
                 effective_date=payload.withdrawal_date,
                 status="effective",
@@ -402,6 +487,44 @@ def business_router() -> APIRouter:
 
         return idempotent(session, idempotency_key, "investment-withdrawal:create", payload.dict(), action)
 
+    @router.post("/investment-contributions", dependencies=[Depends(require_mutation)])
+    def add_investment_contribution(payload: InvestmentContributionCreate, idempotency_key: str = Header(..., alias="Idempotency-Key"), session: Session = Depends(get_mutation_session)):
+        def action():
+            if payload.contribution_date != date.today():
+                raise DomainValidationError("O aporte deve ser registrado na data atual.")
+            materialize_daily_yields(session, payload.contribution_date)
+            investment = require_active(session, Investment, payload.investment_id, "Investimento")
+            before = investment.amount_minor
+            entry = CashEntry(
+                account_id=investment.account_id,
+                kind="balance_adjustment",
+                description="Aporte em investimento",
+                signed_amount_minor=-payload.amount_minor,
+                planned_date=payload.contribution_date,
+                effective_date=payload.contribution_date,
+                status="effective",
+                source="manual",
+                note="Aporte no investimento {}".format(investment.id),
+            )
+            session.add(entry)
+            session.flush()
+            investment.amount_minor += payload.amount_minor
+            investment.revision += 1
+            contribution = InvestmentContribution(
+                investment_id=investment.id,
+                account_id=investment.account_id,
+                contribution_date=payload.contribution_date,
+                amount_minor=payload.amount_minor,
+                balance_before_minor=before,
+                balance_after_minor=investment.amount_minor,
+                cash_entry_id=entry.id,
+            )
+            session.add(contribution)
+            session.flush()
+            return entity_dict(contribution)
+
+        return idempotent(session, idempotency_key, "investment-contribution:create", payload.dict(), action)
+
     @router.post("/investments", dependencies=[Depends(require_mutation)])
     def add_investment(payload: InvestmentCreate, session: Session = Depends(get_mutation_session)):
         require_active(session, Account, payload.account_id, "Banco associado")
@@ -415,9 +538,11 @@ def business_router() -> APIRouter:
         investment = require_active(session, Investment, entity_id, "Investimento")
         ensure_revision(investment, payload.expected_revision)
         require_active(session, Account, payload.account_id, "Banco associado")
+        if payload.amount_minor != investment.amount_minor:
+            raise DomainValidationError("Altere o saldo somente por aporte ou saque.")
+        if payload.account_id != investment.account_id:
+            raise DomainValidationError("Um investimento com histórico não pode ser movido entre contas.")
         before = entity_dict(investment)
-        investment.account_id = payload.account_id
-        investment.amount_minor = payload.amount_minor
         investment.cdi_percentage = payload.cdi_percentage
         investment.revision += 1
         audit(session, "investment", investment.id, "updated", before=before, after=entity_dict(investment))
@@ -428,13 +553,16 @@ def business_router() -> APIRouter:
         return entity_dict(archive_entity(session, Investment, entity_id, payload.expected_revision))
 
     @router.get("/cash-entries")
-    def cash_entries(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), account_id: Optional[str] = None, card_id: Optional[str] = None, category_id: Optional[str] = None, status: Optional[str] = None, source: Optional[str] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None, investment_only: bool = False, active_only: bool = False, session: Session = Depends(get_session)):
+    def cash_entries(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), account_id: Optional[str] = None, card_id: Optional[str] = None, category_id: Optional[str] = None, status: Optional[str] = None, source: Optional[str] = None, date_from: Optional[date] = None, date_to: Optional[date] = None, search: Optional[str] = None, investment_only: bool = False, exclude_investment_yields: bool = False, active_only: bool = False, session: Session = Depends(get_session)):
         query = session.query(CashEntry).order_by(CashEntry.planned_date.desc(), CashEntry.created_at.desc())
         if active_only:
             query = query.filter(CashEntry.status.in_(("planned", "effective")))
         if investment_only:
             investment_account_ids = select(Investment.account_id).where(Investment.archived_at.is_(None))
             query = query.filter(CashEntry.account_id.in_(investment_account_ids))
+        if exclude_investment_yields:
+            yield_entry_ids = select(InvestmentYield.cash_entry_id).where(InvestmentYield.cash_entry_id.is_not(None))
+            query = query.filter(CashEntry.id.not_in(yield_entry_ids))
         if account_id:
             query = query.filter(CashEntry.account_id == account_id)
         if card_id:
@@ -857,6 +985,132 @@ def business_router() -> APIRouter:
             return entity_dict(register_refund(session, today=date.today(), **values))
         return idempotent(session, idempotency_key, "refund:confirm", payload.dict(), action)
 
+    @router.get("/planned-card-purchases")
+    def planned_card_purchases(status: Optional[str] = None, session: Session = Depends(get_session)):
+        query = session.query(PlannedCardPurchase).order_by(PlannedCardPurchase.expected_date)
+        if status:
+            query = query.filter(PlannedCardPurchase.status == status)
+        return {"items": [entity_dict(item) for item in query.all()]}
+
+    @router.post("/planned-card-purchases", dependencies=[Depends(require_mutation)])
+    def add_planned_card_purchase(payload: PlannedCardPurchaseCreate, session: Session = Depends(get_mutation_session)):
+        card = require_active(session, Card, payload.card_id, "Cartão")
+        if payload.category_id:
+            require_active(session, Category, payload.category_id, "Categoria")
+        item = PlannedCardPurchase(
+            **payload.dict(),
+            estimated_invoice_month=suggest_invoice_month(payload.expected_date, card.closing_day, card.due_day),
+            status="planned",
+        )
+        session.add(item)
+        session.flush()
+        audit(session, "planned_card_purchase", item.id, "created", after=entity_dict(item))
+        return entity_dict(item)
+
+    @router.post("/planned-card-purchases/{item_id}/confirm", dependencies=[Depends(require_mutation)])
+    def confirm_planned_card_purchase(item_id: str, session: Session = Depends(get_mutation_session)):
+        item = session.get(PlannedCardPurchase, item_id)
+        if item is None or item.status != "planned":
+            raise DomainValidationError("Somente compra planejada pendente pode ser confirmada.")
+        purchase = create_purchase(session, item.card_id, item.description, item.expected_date,
+                                   item.expected_amount_minor, 1, item.category_id,
+                                   item.estimated_invoice_month, date.today(), source="manual")
+        purchase.planned_card_purchase_id = item.id
+        item.status = "confirmed"
+        item.confirmed_purchase_id = purchase.id
+        item.revision += 1
+        session.flush()
+        audit(session, "planned_card_purchase", item.id, "confirmed", after={"purchase_id": purchase.id})
+        return entity_dict(item)
+
+    @router.post("/planned-card-purchases/{item_id}/cancel", dependencies=[Depends(require_mutation)])
+    def cancel_planned_card_purchase(item_id: str, payload: TransitionRequest, session: Session = Depends(get_mutation_session)):
+        item = session.get(PlannedCardPurchase, item_id)
+        if item is None or item.status != "planned":
+            raise DomainValidationError("Somente compra planejada pendente pode ser cancelada.")
+        ensure_revision(item, payload.expected_revision)
+        item.status = "cancelled"
+        item.revision += 1
+        audit(session, "planned_card_purchase", item.id, "cancelled", reason=payload.reason)
+        return entity_dict(item)
+
+    @router.get("/invoice-payment-plans")
+    def invoice_payment_plans(session: Session = Depends(get_session)):
+        return {"items": [entity_dict(item) for item in session.query(InvoicePaymentPlan).filter_by(status="active").order_by(InvoicePaymentPlan.planned_date).all()]}
+
+    @router.put("/invoices/{invoice_id}/payment-plan", dependencies=[Depends(require_mutation)])
+    def upsert_invoice_payment_plan(invoice_id: str, payload: InvoicePaymentPlanCreate, session: Session = Depends(get_mutation_session)):
+        invoice = session.get(Invoice, invoice_id)
+        if invoice is None or invoice.state == "settled":
+            raise DomainValidationError("Fatura não disponível para planejamento.")
+        require_active(session, Account, payload.account_id, "Conta")
+        item = session.query(InvoicePaymentPlan).filter_by(invoice_id=invoice_id, status="active").one_or_none()
+        if item is None:
+            item = InvoicePaymentPlan(invoice_id=invoice_id, **payload.dict(), status="active")
+            session.add(item)
+        else:
+            item.account_id = payload.account_id
+            item.planned_date = payload.planned_date
+            item.revision += 1
+        session.flush()
+        return entity_dict(item)
+
+    @router.delete("/invoice-payment-plans/{plan_id}", dependencies=[Depends(require_mutation)])
+    def cancel_invoice_payment_plan(plan_id: str, session: Session = Depends(get_mutation_session)):
+        item = session.get(InvoicePaymentPlan, plan_id)
+        if item is None or item.status != "active":
+            raise DomainValidationError("Plano de pagamento não encontrado.")
+        item.status = "cancelled"
+        item.revision += 1
+        return entity_dict(item)
+
+    @router.get("/budgets/{month}")
+    def budgets(month: str, session: Session = Depends(get_session)):
+        parse_month(month)
+        categories = session.query(Category).filter(Category.archived_at.is_(None)).order_by(Category.name).all()
+        summary = monthly_summary(session, month)
+        planned = session.query(CashEntry).filter(CashEntry.status == "planned", CashEntry.kind == "expense", func.strftime("%Y-%m", CashEntry.planned_date) == month).all()
+        recurring = session.query(RecurrenceOccurrence, RecurrenceRule).join(RecurrenceRule, RecurrenceRule.id == RecurrenceOccurrence.rule_id).filter(
+            RecurrenceOccurrence.status == "planned", RecurrenceOccurrence.occurrence_month == month,
+            RecurrenceRule.kind.in_(("expense", "card_purchase"))).all()
+        planned_cards = session.query(PlannedCardPurchase).filter(PlannedCardPurchase.status == "planned", PlannedCardPurchase.estimated_invoice_month == month).all()
+        items = []
+        for category in categories:
+            override = session.query(Budget).filter_by(category_id=category.id, month=month).one_or_none()
+            default = session.query(BudgetDefault).filter(BudgetDefault.category_id == category.id, BudgetDefault.effective_from_month <= month).order_by(BudgetDefault.effective_from_month.desc()).first()
+            limit = override.amount_minor if override else default.amount_minor if default else None
+            registered = summary.categories.get(category.id, 0)
+            additional = sum(-entry.signed_amount_minor for entry in planned if entry.category_id == category.id)
+            additional += sum(occurrence.expected_amount_minor for occurrence, rule in recurring if rule.category_id == category.id)
+            additional += sum(item.expected_amount_minor for item in planned_cards if item.category_id == category.id)
+            result = budget_result(limit, registered, additional)
+            items.append({"category_id": category.id, "category_name": category.name, "limit_minor": limit,
+                          "registered_minor": registered, "planned_minor": additional, **result.__dict__})
+        return {"month": month, "items": items}
+
+    @router.put("/budgets/{month}/{category_id}", dependencies=[Depends(require_mutation)])
+    def upsert_budget(month: str, category_id: str, payload: BudgetUpsert, session: Session = Depends(get_mutation_session)):
+        if payload.month != month or payload.category_id != category_id:
+            raise DomainValidationError("Mês ou categoria divergente.")
+        require_active(session, Category, category_id, "Categoria")
+        item = session.query(Budget).filter_by(category_id=category_id, month=month).one_or_none()
+        if item is None:
+            item = Budget(**payload.dict())
+            session.add(item)
+        else:
+            item.amount_minor = payload.amount_minor
+            item.revision += 1
+        session.flush()
+        return entity_dict(item)
+
+    @router.post("/budget-defaults", dependencies=[Depends(require_mutation)])
+    def add_budget_default(payload: BudgetDefaultCreate, session: Session = Depends(get_mutation_session)):
+        require_active(session, Category, payload.category_id, "Categoria")
+        item = BudgetDefault(**payload.dict())
+        session.add(item)
+        session.flush()
+        return entity_dict(item)
+
     @router.get("/recurrences")
     def recurrences(session: Session = Depends(get_session)):
         rules = session.query(RecurrenceRule).order_by(RecurrenceRule.series_id, RecurrenceRule.version).all()
@@ -968,46 +1222,74 @@ def business_router() -> APIRouter:
         return {"months": months}
 
     @router.get("/reports/future-balance")
-    def future_balance(account_id: Optional[str] = None, session: Session = Depends(get_session)):
+    def future_balance(account_id: Optional[str] = None, date_to: Optional[date] = None, session: Session = Depends(get_session)):
         today = date.today()
+        horizon = date_to or limited_date(add_months(month_of(today), 12), today.day)
+        if horizon < today:
+            raise DomainValidationError("A data final da projeção não pode estar no passado.")
         accounts_query = session.query(Account).filter(Account.archived_at.is_(None))
         if account_id:
             accounts_query = accounts_query.filter(Account.id == account_id)
         accounts = accounts_query.all()
         account_ids = [account.id for account in accounts]
         if not account_ids:
-            return {"current_minor": 0, "planned_expenses_minor": 0, "installments_minor": 0, "future_balance_minor": 0}
+            return {"current_minor": 0, "planned_income_minor": 0, "planned_expenses_minor": 0, "installments_minor": 0, "future_balance_minor": 0, "date_to": horizon}
         current_minor = sum(balance_for_account(session, account.id, today) for account in accounts)
-
-        planned_expenses_query = session.query(func.coalesce(func.sum(CashEntry.signed_amount_minor), 0)).filter(
+        planned_entries_query = session.query(CashEntry).filter(
             CashEntry.status == "planned",
-            CashEntry.kind == "expense",
             CashEntry.planned_date >= today,
-        )
-        installments_query = (
-            session.query(func.coalesce(func.sum(Installment.amount_minor), 0))
-            .join(Invoice, Invoice.id == Installment.invoice_id)
-            .join(Card, Card.id == Invoice.card_id)
-            .filter(
-                Installment.status == "confirmed",
-                Invoice.state != "settled",
-                Invoice.due_date >= today,
-            )
+            CashEntry.planned_date <= horizon,
         )
         if account_id:
-            planned_expenses_query = planned_expenses_query.filter(CashEntry.account_id == account_id)
-            installments_query = installments_query.filter(Card.default_account_id == account_id)
+            planned_entries_query = planned_entries_query.filter(CashEntry.account_id == account_id)
         elif account_ids:
-            planned_expenses_query = planned_expenses_query.filter(CashEntry.account_id.in_(account_ids))
-            installments_query = installments_query.filter(Card.default_account_id.in_(account_ids))
+            planned_entries_query = planned_entries_query.filter(CashEntry.account_id.in_(account_ids))
+        planned_entries = planned_entries_query.all()
+        planned_income_minor = sum(item.signed_amount_minor for item in planned_entries if item.signed_amount_minor > 0)
+        planned_expenses_minor = sum(-item.signed_amount_minor for item in planned_entries if item.signed_amount_minor < 0)
 
-        planned_expenses_minor = abs(planned_expenses_query.scalar() or 0)
-        installments_minor = installments_query.scalar() or 0
+        occurrences = session.query(RecurrenceOccurrence, RecurrenceRule).join(RecurrenceRule, RecurrenceRule.id == RecurrenceOccurrence.rule_id).filter(
+            RecurrenceOccurrence.status == "planned", RecurrenceOccurrence.expected_date >= today,
+            RecurrenceOccurrence.expected_date <= horizon).all()
+        for occurrence, rule in occurrences:
+            if rule.kind in ("income", "expense") and rule.account_id in account_ids:
+                if rule.kind == "income": planned_income_minor += occurrence.expected_amount_minor
+                else: planned_expenses_minor += occurrence.expected_amount_minor
+
+        installments_minor = 0
+        invoices = session.query(Invoice, Card).join(Card, Card.id == Invoice.card_id).filter(
+            Invoice.state != "settled", Invoice.due_date >= today, Invoice.due_date <= horizon).all()
+        for invoice, card in invoices:
+            plan = session.query(InvoicePaymentPlan).filter_by(invoice_id=invoice.id, status="active").one_or_none()
+            target_account = plan.account_id if plan else card.default_account_id
+            if target_account not in account_ids:
+                continue
+            installments_minor += calculate_invoice(session, invoice.id).payable_minor
+
+        planned_cards = session.query(PlannedCardPurchase, Card).join(Card, Card.id == PlannedCardPurchase.card_id).filter(
+            PlannedCardPurchase.status == "planned", PlannedCardPurchase.expected_date >= today,
+            PlannedCardPurchase.expected_date <= horizon).all()
+        installments_minor += sum(item.expected_amount_minor for item, card in planned_cards if card.default_account_id in account_ids)
+        installments_minor += sum(occurrence.expected_amount_minor for occurrence, rule in occurrences
+                                  if rule.kind == "card_purchase"
+                                  and session.get(Card, rule.card_id).default_account_id in account_ids)
+
+        planned_refunds = session.query(Refund).filter(Refund.status == "planned", Refund.planned_date >= today, Refund.planned_date <= horizon).all()
+        for refund in planned_refunds:
+            if refund.target_account_id in account_ids:
+                planned_income_minor += refund.amount_minor
+            elif refund.target_invoice_id:
+                invoice = session.get(Invoice, refund.target_invoice_id)
+                card = session.get(Card, invoice.card_id) if invoice else None
+                if card and card.default_account_id in account_ids:
+                    installments_minor = max(0, installments_minor - refund.amount_minor)
         return {
             "current_minor": current_minor,
+            "planned_income_minor": planned_income_minor,
             "planned_expenses_minor": planned_expenses_minor,
             "installments_minor": installments_minor,
-            "future_balance_minor": current_minor - planned_expenses_minor - installments_minor,
+            "future_balance_minor": current_minor + planned_income_minor - planned_expenses_minor - installments_minor,
+            "date_to": horizon,
         }
 
     @router.get("/reports/monthly/{month}")

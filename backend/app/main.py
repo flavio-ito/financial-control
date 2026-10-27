@@ -1,4 +1,5 @@
 from pathlib import Path
+import secrets
 from typing import Callable, Optional
 
 from fastapi import FastAPI, Request
@@ -16,6 +17,7 @@ from app.api.security import SessionSecurity
 from app.config import data_directory, resource_directory
 from app.storage.database import Database
 from app.maintenance.backup import BackupError, MaintenanceGate
+from app.api.integrations import ImportBodyLimitMiddleware
 
 
 def create_app(
@@ -31,11 +33,13 @@ def create_app(
 
     app = FastAPI(title="Controle Financeiro Local API", version="0.1.0")
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
+    app.add_middleware(ImportBodyLimitMiddleware)
     app.state.database = db
     app.state.security = security or SessionSecurity()
     app.state.data_directory = data_dir
     app.state.maintenance_gate = maintenance_gate or MaintenanceGate()
     app.state.pending_restores = {}
+    app.state.import_signing_key = secrets.token_bytes(32)
     app.include_router(api_router(shutdown_callback))
 
     @app.exception_handler(RequestValidationError)
@@ -76,6 +80,16 @@ def create_app(
     assets = static_dir / "assets"
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+
+    @app.get("/capy_logo.png", include_in_schema=False)
+    def capy_logo():
+        logo = static_dir / "capy_logo.png"
+        if not logo.is_file():
+            return JSONResponse(
+                status_code=404,
+                content={"detail": {"code": "NOT_FOUND", "message": "Logotipo nÃ£o encontrado."}},
+            )
+        return FileResponse(str(logo), media_type="image/png")
 
     @app.exception_handler(Exception)
     async def unhandled_error(_request: Request, _error: Exception):

@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.storage.models import CashEntry, Investment, InvestmentYield, Setting
+from app.storage.models import Investment, InvestmentYield, Setting
 
 
 DEFAULT_CDI_ANNUAL_RATE_BPS = 1447
@@ -27,21 +27,7 @@ def materialize_daily_yields(session: Session, as_of: date) -> int:
         while current_date <= as_of:
             before = investment.amount_minor
             amount = daily_yield_minor(before, annual_rate, investment.cdi_percentage)
-            entry = None
             if amount > 0:
-                entry = CashEntry(
-                    account_id=investment.account_id,
-                    kind="income",
-                    description="Rendimento diário de CDI",
-                    signed_amount_minor=amount,
-                    planned_date=current_date,
-                    effective_date=current_date,
-                    status="effective",
-                    source="bank_api",
-                    note="Rendimento automático do investimento {}".format(investment.id),
-                )
-                session.add(entry)
-                session.flush()
                 investment.amount_minor += amount
             session.add(InvestmentYield(
                 investment_id=investment.id,
@@ -52,7 +38,7 @@ def materialize_daily_yields(session: Session, as_of: date) -> int:
                 balance_after_minor=investment.amount_minor,
                 cdi_annual_rate_bps=annual_rate,
                 investment_cdi_percentage=investment.cdi_percentage,
-                cash_entry_id=entry.id if entry else None,
+                cash_entry_id=None,
             ))
             investment.revision += 1
             created += 1

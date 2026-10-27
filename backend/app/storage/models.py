@@ -10,6 +10,66 @@ Base = declarative_base()
 SAFE = str(SAFE_INTEGER_MAX)
 
 
+class ExternalAccount(Base):
+    __tablename__ = "external_accounts"
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id", name="uq_external_account_identity"),
+        CheckConstraint("NOT (account_id IS NOT NULL AND card_id IS NOT NULL)", name="ck_external_single_target"),
+    )
+    id = Column(String(36), primary_key=True)
+    provider = Column(String(24), nullable=False)
+    external_id = Column(String(160), nullable=False)
+    name = Column(String(240), nullable=False)
+    kind = Column(String(24), nullable=False)
+    currency = Column(String(8))
+    balance_minor = Column(Integer)
+    limit_minor = Column(Integer)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"))
+    card_id = Column(String(36), ForeignKey("cards.id", ondelete="RESTRICT"))
+    enabled = Column(Integer, nullable=False, default=0)
+    last_sync_at = Column(String(40))
+
+
+class ImportedTransaction(Base):
+    __tablename__ = "imported_transactions"
+    __table_args__ = (
+        UniqueConstraint("external_account_id", "external_id", name="uq_imported_transaction_identity"),
+        CheckConstraint("state IN ('review','linked','ignored')", name="ck_imported_state"),
+        CheckConstraint("amount_minor BETWEEN -{} AND {} AND amount_minor <> 0".format(SAFE, SAFE), name="ck_imported_amount"),
+    )
+    id = Column(String(36), primary_key=True)
+    external_account_id = Column(String(36), ForeignKey("external_accounts.id", ondelete="RESTRICT"), nullable=False)
+    external_id = Column(String(200), nullable=False)
+    import_id = Column(String(64))
+    transaction_date = Column(Date, nullable=False)
+    description = Column(String(240), nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(8), nullable=False)
+    provider_status = Column(String(32), nullable=False)
+    category = Column(String(160))
+    installment_number = Column(Integer)
+    installment_count = Column(Integer)
+    state = Column(String(16), nullable=False, default="review")
+    review_reason = Column(String(240))
+    fingerprint = Column(String(64), nullable=False)
+    cash_entry_id = Column(String(36), ForeignKey("cash_entries.id", ondelete="RESTRICT"))
+    installment_id = Column(String(36), ForeignKey("installments.id", ondelete="RESTRICT"))
+    payment_id = Column(String(36), ForeignKey("payments.id", ondelete="RESTRICT"))
+    invoice_adjustment_id = Column(String(36), ForeignKey("invoice_adjustments.id", ondelete="RESTRICT"))
+
+
+class BankSyncRun(Base):
+    __tablename__ = "bank_sync_runs"
+    id = Column(String(36), primary_key=True)
+    provider = Column(String(24), nullable=False)
+    finished_at = Column(String(40), nullable=False)
+    new = Column(Integer, nullable=False, default=0)
+    updated = Column(Integer, nullable=False, default=0)
+    ignored = Column(Integer, nullable=False, default=0)
+    review = Column(Integer, nullable=False, default=0)
+    error = Column(String(240))
+
+
 def uuid4_string():
     return str(uuid.uuid4())
 
@@ -115,6 +175,21 @@ class InvestmentWithdrawal(MutableMixin, Base):
     investment_id = Column(String(36), ForeignKey("investments.id", ondelete="RESTRICT"), nullable=False)
     account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
     withdrawal_date = Column(Date, nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    balance_before_minor = Column(Integer, nullable=False)
+    balance_after_minor = Column(Integer, nullable=False)
+    cash_entry_id = Column(String(36), ForeignKey("cash_entries.id", ondelete="RESTRICT"), nullable=False, unique=True)
+
+
+class InvestmentContribution(MutableMixin, Base):
+    __tablename__ = "investment_contributions"
+    __table_args__ = (
+        CheckConstraint("amount_minor BETWEEN 1 AND {}".format(SAFE), name="ck_investment_contributions_safe_amount"),
+        Index("ix_investment_contributions_date", "contribution_date"),
+    )
+    investment_id = Column(String(36), ForeignKey("investments.id", ondelete="RESTRICT"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    contribution_date = Column(Date, nullable=False)
     amount_minor = Column(Integer, nullable=False)
     balance_before_minor = Column(Integer, nullable=False)
     balance_after_minor = Column(Integer, nullable=False)
@@ -317,6 +392,43 @@ class Refund(MutableMixin, Base):
     reason = Column(Text, nullable=False)
 
 
+class PlannedCardPurchase(MutableMixin, Base):
+    __tablename__ = "planned_card_purchases"
+    card_id = Column(String(36), ForeignKey("cards.id", ondelete="RESTRICT"), nullable=False)
+    description = Column(String(240), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"))
+    expected_date = Column(Date, nullable=False)
+    expected_amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False, default="BRL")
+    estimated_invoice_month = Column(String(7), nullable=False)
+    status = Column(String(16), nullable=False, default="planned")
+    confirmed_purchase_id = Column(String(36), ForeignKey("purchases.id", ondelete="RESTRICT"), unique=True)
+
+
+class InvoicePaymentPlan(MutableMixin, Base):
+    __tablename__ = "invoice_payment_plans"
+    invoice_id = Column(String(36), ForeignKey("invoices.id", ondelete="RESTRICT"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    planned_date = Column(Date, nullable=False)
+    status = Column(String(16), nullable=False, default="active")
+
+
+class BudgetDefault(MutableMixin, Base):
+    __tablename__ = "budget_defaults"
+    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    effective_from_month = Column(String(7), nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False, default="BRL")
+
+
+class Budget(MutableMixin, Base):
+    __tablename__ = "budgets"
+    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    month = Column(String(7), nullable=False)
+    amount_minor = Column(Integer, nullable=False)
+    currency = Column(String(3), nullable=False, default="BRL")
+
+
 class RecurrenceRule(MutableMixin, Base):
     __tablename__ = "recurrence_rules"
     __table_args__ = (
@@ -425,4 +537,18 @@ class BackupRun(Base):
     alembic_revision = Column(String(64), nullable=False)
     backup_format_version = Column(Integer, nullable=False)
     error_message = Column(Text)
+
+
+class ImportCategoryRule(Base):
+    __tablename__ = "import_category_rules"
+    __table_args__ = (
+        CheckConstraint("length(trim(phrase)) > 0", name="ck_import_category_rule_phrase"),
+        CheckConstraint("NOT (account_id IS NOT NULL AND card_id IS NOT NULL)", name="ck_import_category_rule_target"),
+    )
+    id = Column(String(36), primary_key=True, default=uuid4_string)
+    phrase = Column(String(120), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    account_id = Column(String(36), ForeignKey("accounts.id", ondelete="RESTRICT"))
+    card_id = Column(String(36), ForeignKey("cards.id", ondelete="RESTRICT"))
+    active = Column(Integer, nullable=False, default=1)
 

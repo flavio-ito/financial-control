@@ -1,6 +1,6 @@
 # Registro de testes
 
-Data da validação mais recente: 2026-09-10. Nenhuma etapa foi promovida com teste obrigatório falhando.
+Data da validação mais recente: 2026-10-27. Nenhuma etapa foi promovida com teste obrigatório falhando.
 
 | Etapa | Evidência executada | Resultado |
 | --- | --- | --- |
@@ -15,9 +15,9 @@ Data da validação mais recente: 2026-09-10. Nenhuma etapa foi promovida com te
 
 ## Suítes finais
 
-- Backend: `65 passed` no pipeline final.
+- Backend: `107 passed` na validação local final.
 - Backend validado também no Python 3.12.10.
-- Frontend: `14 passed` em 3 arquivos.
+- Frontend: `26 passed` em 5 arquivos.
 - TypeScript estrito: aprovado sem erros.
 - Dependências JavaScript: `npm audit` sem vulnerabilidades após atualização.
 - Desempenho: paginação indexada em base sintética de 50 mil movimentos em `0,012493 s` para a consulta medida (teste completo, incluindo preparação, `1,45 s`).

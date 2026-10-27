@@ -71,11 +71,14 @@ describe("assistente de primeiro acesso", () => {
     await screen.findByRole("option", { name: "Banco Teste" });
     fireEvent.change(screen.getByLabelText("Nome"), { target: { value: "Cartão principal" } });
     fireEvent.change(screen.getByLabelText("Banco"), { target: { value: "account-1" } });
+    fireEvent.change(screen.getByLabelText(/Limite do cartão/), { target: { value: "R$ 2.500,00" } });
+    fireEvent.change(screen.getByLabelText("Dia de fechamento"), { target: { value: "8" } });
+    fireEvent.change(screen.getByLabelText("Dia de vencimento"), { target: { value: "17" } });
     fireEvent.click(screen.getByRole("button", { name: "Adicionar cartão" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([path, init]) => String(path) === "/api/v1/cards" && init?.method === "POST")).toBe(true));
     expect(await screen.findByText("Cartão principal")).toBeInTheDocument();
     const cardCall = fetchMock.mock.calls.find(([path, init]) => String(path) === "/api/v1/cards" && init?.method === "POST");
-    expect(JSON.parse(String(cardCall?.[1]?.body))).toEqual({ name: "Cartão principal", limit_minor: 0, closing_day: 10, due_day: 20, default_account_id: "account-1" });
+    expect(JSON.parse(String(cardCall?.[1]?.body))).toEqual({ name: "Cartão principal", limit_minor: 250000, closing_day: 8, due_day: 17, default_account_id: "account-1" });
     fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await screen.findByRole("heading", { name: "Crie suas categorias" });
   });

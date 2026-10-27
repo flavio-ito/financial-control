@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date
 from threading import Timer
 from typing import Optional
 import json
@@ -14,6 +15,7 @@ import uvicorn
 from app.api.security import SessionSecurity
 from app.config import APP_ID, data_directory
 from app.domain.recurrence import generate_pending_occurrences
+from app.domain.investments import materialize_daily_yields
 from app.main import create_app
 from app.maintenance.backup import MaintenanceGate, ensure_daily_backup
 from app.storage.database import Database
@@ -63,6 +65,8 @@ def main(data_dir_override: Optional[str] = None, open_browser: bool = True,
         migrate(database_path, data_dir / "backups" / "pre-migration")
         db = Database(database_path)
         generate_pending_occurrences(db)
+        with db.session() as session:
+            materialize_daily_yields(session, date.today())
         ensure_daily_backup(database_path, data_dir / "backups" / "daily")
 
         port = server_port or available_port()

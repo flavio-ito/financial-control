@@ -9,6 +9,7 @@ const iconProps = { viewBox: "0 0 24 24", "aria-hidden": true } as const;
 const navigation: NavigationItem[] = [
   { to: "/", label: "Visão geral", icon: <svg {...iconProps}><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg> },
   { to: "/movimentacoes", label: "Transações", icon: <svg {...iconProps}><path d="M4 7h15M7 4 4 7l3 3M20 17H5m12-3 3 3-3 3" /></svg> },
+  { to: "/planejamento", label: "Planejamento", icon: <svg {...iconProps}><path d="M5 4v16M5 7h14l-3 4 3 4H5" /></svg> },
   { to: "/investimentos", label: "Investimentos", icon: <svg {...iconProps}><path d="M4 19V14m4 5v-7m4 7v-4m4 4V9m4 10V5M4 11l5-4 4 3 7-7" /></svg> },
   { to: "/cartoes", label: "Contas e cartões", icon: <svg {...iconProps}><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M4 9h16m-12 5h5" /></svg> },
 ];
@@ -29,8 +30,7 @@ export function AppShell() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true"><img src="/minhas_financas_logo.png" alt="" /></span>
-          <span className="brand-copy"><strong>Minhas Finanças</strong></span>
+          <span className="brand-mark" aria-hidden="true"><img src="/capy_logo.png" alt="" /></span>
         </div>
         <nav aria-label="Navegação principal">
           <div className="sidebar-links"><NavigationLinks items={navigation} /></div>

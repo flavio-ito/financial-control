@@ -7,6 +7,7 @@ from app import __version__
 from app.api.security import SESSION_COOKIE, require_mutation, require_session
 from app.api.business import business_router
 from app.api.backup_routes import backup_router
+from app.api.integrations import integration_router
 from app.config import APP_ID
 
 
@@ -58,4 +59,5 @@ def api_router(shutdown_callback: Optional[Callable[[], None]] = None) -> APIRou
 
     router.include_router(business_router())
     router.include_router(backup_router())
+    router.include_router(integration_router())
     return router

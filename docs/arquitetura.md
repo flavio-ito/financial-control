@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O Controle Financeiro Local é uma aplicação desktop-local distribuída como pacote Windows `onedir`. O executável inicializa um servidor FastAPI exclusivo em `127.0.0.1`, abre a interface React no navegador padrão e mantém os dados em SQLite no perfil do usuário. Não há serviço remoto, nuvem ou integração bancária no MVP.
+O Controle Financeiro Local é uma aplicação desktop-local distribuída como pacote Windows `onedir`. O executável inicializa um servidor FastAPI exclusivo em `127.0.0.1`, abre a interface React no navegador padrão e mantém os dados em SQLite no perfil do usuário. CSV e OFX funcionam localmente.
 
 ```text
 Navegador
@@ -30,6 +30,7 @@ Launcher Windows ── Uvicorn/FastAPI ── API /api/v1
 - impedir uma segunda instância por meio de lock de arquivo;
 - executar migrações antes de abrir a aplicação;
 - gerar ocorrências recorrentes pendentes;
+- materializar rendimentos de investimentos até a data de inicialização;
 - criar o backup diário;
 - selecionar uma porta local disponível;
 - emitir o token bootstrap de uso único;
@@ -43,6 +44,8 @@ Falhas de startup são registradas em `startup-error.log` no diretório de dados
 `backend/app/main.py` compõe a aplicação FastAPI, os middlewares, handlers de erro, rotas `/api/v1` e o fallback da SPA. Os assets compilados de `frontend/dist` são copiados para `backend/app/static` durante o build e incluídos no pacote pelo PyInstaller.
 
 `frontend/src` contém a aplicação React/TypeScript. O cliente usa URLs relativas, portanto frontend e API compartilham origem. React Query controla carregamento e invalidação; React Hook Form e Zod tratam formulários e validação de entrada no cliente. A API continua sendo a autoridade de validação e regras de negócio.
+
+As rotas GET são somente leitura. Ocorrências e rendimentos que precisam ser persistidos são materializados na inicialização ou em mutações financeiras explícitas.
 
 ### Domínio
 
@@ -131,6 +134,6 @@ Uma Release deve ser criada a partir de um commit da `main` com CI aprovada e de
 - Novas regras: `backend/app/domain`, com testes de unidade e integração.
 - Persistência: modelos e nova revisão Alembic.
 - Interface: página/componente no frontend e tipos regenerados.
-- Importações futuras: preview, detecção de duplicidade, idempotência e confirmação explícita.
+- Importações: `backend/app/integrations`, com prévia, detecção de duplicidade, revisão e confirmação explícita. Regras de categoria sugerem valores sem alterar lançamentos automaticamente.
 
 Consulte [modelo de dados](modelo-dados.md), [decisões técnicas](decisoes.md), [migração e recuperação](migracao-recuperacao.md) e [desenvolvimento](desenvolvimento.md).

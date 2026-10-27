@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-27
+
+- Removida a conexão bancária online; CSV e OFX permanecem locais.
+- Aportes e saques passaram a ser transferências patrimoniais, sem contaminar receitas e despesas.
+- Rendimentos deixaram de ser materializados por requisições GET.
+- Projeção unificada passou a considerar receitas, despesas, recorrências, faturas, compras planejadas e reembolsos.
+- Adicionados fluxos de recorrências, compras planejadas, orçamento, planejamento e pagamento integral de faturas.
+- Restaurada a suíte de componentes do frontend.
+
 ## Não lançado
 
 - Ambiente de desenvolvimento, CI e empacotamento atualizado do Python 3.7 para o Python 3.12.

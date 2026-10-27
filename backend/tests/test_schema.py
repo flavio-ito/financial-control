@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from alembic import command
@@ -13,17 +13,24 @@ from app.storage.models import (
     Card,
     Category,
     Invoice,
+    Investment,
+    InvestmentYield,
+    CashEntry,
     RecurrenceOccurrence,
     RecurrenceRule,
 )
 
 EXPECTED_TABLES = {
+    "external_accounts",
+    "imported_transactions",
+    "bank_sync_runs",
     "settings",
     "accounts",
     "cards",
     "investments",
     "investment_yields",
     "investment_withdrawals",
+    "investment_contributions",
     "categories",
     "cash_entries",
     "transfers",
@@ -65,7 +72,8 @@ def seed_account_card_category(session):
 def test_migration_contains_all_contract_tables_and_indexes(domain_db):
     inspector = inspect(domain_db.engine)
     assert EXPECTED_TABLES.issubset(set(inspector.get_table_names()))
-    assert current_revision(domain_db.path) == head_revision(domain_db.path) == "0006_remove_category_kind"
+    assert "bank_connections" not in inspector.get_table_names()
+    assert current_revision(domain_db.path) == head_revision(domain_db.path) == "0011_remove_online_bank_connections"
     assert "kind" not in {column["name"] for column in inspector.get_columns("categories")}
     assert any(index["name"] == "ix_cash_entries_account_date" for index in inspector.get_indexes("cash_entries"))
     assert any(index["name"] == "uq_active_recurrence_series_month" for index in inspector.get_indexes("recurrence_occurrences"))
@@ -90,6 +98,56 @@ def test_upgrade_preserves_existing_settings(tmp_path):
     assert backups
     from app.maintenance.backup import validate_finbackup
     assert validate_finbackup(backups[0]).manifest["alembic_revision"] == "0001_foundation"
+
+
+def test_upgrade_voids_legacy_yield_cash_entries(tmp_path):
+    path = tmp_path / "legacy-yields.sqlite3"
+    config = alembic_config(path)
+    command.upgrade(config, "0009_investment_contributions")
+    database = Database(path)
+    with database.session() as session:
+        account = Account(name="Conta", reference_date=date(2026, 10, 1), reference_balance_minor=100_000)
+        session.add(account)
+        session.flush()
+        investment = Investment(
+            account_id=account.id,
+            amount_minor=100_100,
+            cdi_percentage=10_000,
+            created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        )
+        entry = CashEntry(
+            account_id=account.id,
+            kind="income",
+            description="Rendimento diário de CDI",
+            signed_amount_minor=100,
+            planned_date=date(2026, 10, 2),
+            effective_date=date(2026, 10, 2),
+            status="effective",
+            source="bank_api",
+        )
+        session.add_all([investment, entry])
+        session.flush()
+        session.add(InvestmentYield(
+            investment_id=investment.id,
+            account_id=account.id,
+            yield_date=date(2026, 10, 2),
+            amount_minor=100,
+            balance_before_minor=100_000,
+            balance_after_minor=100_100,
+            cdi_annual_rate_bps=1447,
+            investment_cdi_percentage=10_000,
+            cash_entry_id=entry.id,
+        ))
+    database.dispose()
+
+    command.upgrade(config, "head")
+
+    reopened = Database(path)
+    with reopened.session() as session:
+        assert session.query(CashEntry).one().status == "voided"
+        assert session.query(InvestmentYield).one().cash_entry_id is not None
+        assert session.query(Investment).one().amount_minor == 100_100
+    reopened.dispose()
 
 
 def test_foreign_keys_and_safe_money_are_database_constraints(domain_db):

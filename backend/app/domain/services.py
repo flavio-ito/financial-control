@@ -33,6 +33,7 @@ from app.storage.models import (
     RecurrenceOccurrence,
     RecurrenceRule,
     Transfer,
+    ImportedTransaction,
 )
 
 
@@ -387,7 +388,7 @@ def correct_purchase(session: Session, purchase_id: str, expected_revision: int,
     if purchase is None:
         raise DomainValidationError("Compra nÃ£o encontrada.")
     ensure_revision(purchase, expected_revision)
-    if purchase.source != "manual":
+    if purchase.source not in ("manual", "file_import", "bank_api"):
         raise DomainValidationError("Somente compras manuais podem ser alteradas.")
     installments = session.query(Installment).filter(Installment.purchase_id == purchase.id).all()
     if any(session.query(Invoice).filter(Invoice.id == item.invoice_id).one().state == "settled" for item in installments):
@@ -408,6 +409,14 @@ def correct_purchase(session: Session, purchase_id: str, expected_revision: int,
         "purchase_date": purchase.purchase_date, "total_minor": purchase.total_minor,
         "installment_count": purchase.installment_count, "category_id": purchase.category_id,
     }
+    # The existing editor recreates installments. Keep bank evidence and reopen its
+    # reconciliation instead of letting the new FK block a previously valid edit.
+    installment_ids = [item.id for item in installments]
+    for imported in session.query(ImportedTransaction).filter(ImportedTransaction.installment_id.in_(installment_ids)):
+        audit(session, "imported_transaction", imported.id, "local_purchase_corrected", before={"installment_id": imported.installment_id})
+        imported.installment_id, imported.state = None, "review"
+        imported.review_reason = "Compra local alterada; revise novamente a parcela correspondente."
+    session.flush()
     session.query(Installment).filter(Installment.purchase_id == purchase.id).delete(synchronize_session=False)
     purchase.card_id = card.id
     purchase.description = changes["description"].strip()
@@ -454,9 +463,9 @@ def correct_cash_entry(session: Session, entry_id: str, expected_revision: int, 
     if entry is None:
         raise DomainValidationError("MovimentaÃ§Ã£o nÃ£o encontrada.")
     ensure_revision(entry, expected_revision)
-    if entry.source not in ("manual", "recurrence") or entry.kind in ("transfer", "invoice_payment"):
+    if entry.source not in ("manual", "recurrence", "file_import", "bank_api") or entry.kind not in ("income", "expense", "balance_adjustment"):
         raise DomainValidationError("Corrija esta movimentaÃ§Ã£o pelo fluxo de origem.")
-    before = {"description": entry.description, "signed_amount_minor": entry.signed_amount_minor, "planned_date": entry.planned_date, "effective_date": entry.effective_date, "category_id": entry.category_id, "status": entry.status}
+    before = {"account_id": entry.account_id, "kind": entry.kind, "description": entry.description, "signed_amount_minor": entry.signed_amount_minor, "planned_date": entry.planned_date, "effective_date": entry.effective_date, "category_id": entry.category_id, "status": entry.status}
     account = require_active(session, Account, values["account_id"], "Conta")
     category_id = values.get("category_id")
     kind = values["kind"]
@@ -477,6 +486,10 @@ def correct_cash_entry(session: Session, entry_id: str, expected_revision: int, 
     entry.category_id = category_id
     entry.note = values.get("note")
     entry.revision += 1
+    if any(before[key] != getattr(entry, key) for key in ("account_id", "kind", "signed_amount_minor", "planned_date", "effective_date", "status")):
+        for imported in session.query(ImportedTransaction).filter_by(cash_entry_id=entry.id):
+            imported.state = "review"
+            imported.review_reason = "Lançamento local alterado; confira a diferença em relação ao registro externo."
     audit(session, "cash_entry", entry.id, "corrected", before=before, after={"signed_amount_minor": entry.signed_amount_minor, "status": entry.status})
     return entry
 

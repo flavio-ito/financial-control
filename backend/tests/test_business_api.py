@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi.testclient import TestClient
 
@@ -6,7 +6,61 @@ from app.api.security import SessionSecurity
 from app.main import create_app
 from app.storage.database import Database
 from app.storage.migrations import migrate
-from app.storage.models import Account, Card, CashEntry, Installment, Invoice, InvoiceAdjustment, Payment, Purchase, Refund
+from app.storage.models import Account, Card, CashEntry, Installment, Investment, InvestmentContribution, InvestmentWithdrawal, InvestmentYield, Invoice, InvoiceAdjustment, Payment, Purchase, Refund
+
+
+def test_investment_history_summary_uses_full_filtered_period_not_page(authenticated):
+    client, _csrf, _path, database = authenticated
+    with database.session() as session:
+        account = Account(name="Investimentos", reference_date=date(2026, 1, 1), reference_balance_minor=0)
+        session.add(account)
+        session.flush()
+        investment = Investment(account_id=account.id, amount_minor=100_000, cdi_percentage=10_000, archived_at=datetime.now(timezone.utc))
+        session.add(investment)
+        session.flush()
+        for day, amount in ((1, 100), (2, 200), (3, 300)):
+            entry = CashEntry(account_id=account.id, kind="income", description="Rendimento", signed_amount_minor=amount, planned_date=date(2026, 10, day), effective_date=date(2026, 10, day), status="effective", source="bank_api")
+            session.add(entry)
+            session.flush()
+            session.add(InvestmentYield(investment_id=investment.id, account_id=account.id, yield_date=date(2026, 10, day), amount_minor=amount, balance_before_minor=100_000, balance_after_minor=100_000 + amount, cdi_annual_rate_bps=1447, investment_cdi_percentage=10_000, cash_entry_id=entry.id))
+        withdrawal_entry = CashEntry(account_id=account.id, kind="expense", description="Saque", signed_amount_minor=-250, planned_date=date(2026, 10, 4), effective_date=date(2026, 10, 4), status="effective", source="bank_api")
+        session.add(withdrawal_entry)
+        session.flush()
+        session.add(InvestmentWithdrawal(investment_id=investment.id, account_id=account.id, withdrawal_date=date(2026, 10, 4), amount_minor=250, balance_before_minor=100_600, balance_after_minor=100_350, cash_entry_id=withdrawal_entry.id))
+
+    response = client.get("/api/v1/investment-yields", params={"date_from": "2026-10-01", "date_to": "2026-10-31", "page_size": 2})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["items"]) == 2
+    assert payload["total"] == 4
+    assert payload["summary"] == {"income_minor": 600, "withdrawal_minor": 250, "net_minor": 350}
+    assert payload["series"] == [
+        {"date": "2026-10-01", "portfolio_minor": 100100},
+        {"date": "2026-10-02", "portfolio_minor": 100200},
+        {"date": "2026-10-03", "portfolio_minor": 100300},
+        {"date": "2026-10-04", "portfolio_minor": 100350},
+    ]
+
+
+def test_delete_category_keeps_movements_as_uncategorized(authenticated):
+    client, csrf, _path, database = authenticated
+    category = client.post("/api/v1/categories", json={"name": "Temporária"}, headers=headers(csrf)).json()
+    with database.session() as session:
+        account = Account(name="Conta", reference_date=date(2026, 1, 1), reference_balance_minor=0)
+        session.add(account)
+        session.flush()
+        entry = CashEntry(account_id=account.id, kind="expense", description="Compra", signed_amount_minor=-1000, planned_date=date(2026, 10, 1), effective_date=date(2026, 10, 1), status="effective", source="manual", category_id=category["id"])
+        session.add(entry)
+        session.flush()
+        entry_id = entry.id
+
+    response = client.request("DELETE", f"/api/v1/categories/{category['id']}", json={"expected_revision": category["revision"], "reason": "Teste"}, headers=headers(csrf))
+    assert response.status_code == 200
+    assert response.json()["deleted"] is True
+    assert all(item["id"] != category["id"] for item in client.get("/api/v1/categories").json()["items"])
+    with database.session() as session:
+        assert session.query(CashEntry).filter(CashEntry.id == entry_id).one().category_id is None
 
 
 def headers(csrf, key=None):
@@ -14,6 +68,33 @@ def headers(csrf, key=None):
     if key:
         result["Idempotency-Key"] = key
     return result
+
+
+def test_investment_contribution_updates_balance_and_history(authenticated):
+    client, csrf, _path, database = authenticated
+    with database.session() as session:
+        account = Account(name="Conta", reference_date=date.today(), reference_balance_minor=500_000)
+        session.add(account)
+        session.flush()
+        investment = Investment(account_id=account.id, amount_minor=100_000, cdi_percentage=10_000)
+        session.add(investment)
+        session.flush()
+        investment_id = investment.id
+
+    response = client.post("/api/v1/investment-contributions", headers=headers(csrf, "investment-contribution-1"), json={"investment_id": investment_id, "amount_minor": 25_000, "contribution_date": date.today().isoformat()})
+
+    assert response.status_code == 200
+    with database.session() as session:
+        assert session.get(Investment, investment_id).amount_minor == 125_000
+        contribution = session.query(InvestmentContribution).one()
+        assert contribution.balance_before_minor == 100_000
+        assert contribution.balance_after_minor == 125_000
+        entry = session.get(CashEntry, contribution.cash_entry_id)
+        assert entry.signed_amount_minor == -25_000
+
+    history = client.get("/api/v1/investment-yields", params={"date_from": date.today().isoformat(), "date_to": date.today().isoformat()}).json()
+    assert any(item["source"] == "investment_contribution" and item["signed_amount_minor"] == 25_000 for item in history["items"])
+    assert history["series"][-1]["portfolio_minor"] == 125_000
 
 
 def test_effective_expense_on_reference_date_updates_current_balance(authenticated):

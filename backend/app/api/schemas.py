@@ -89,6 +89,12 @@ class InvestmentWithdrawalCreate(MoneyModel):
     withdrawal_date: date
 
 
+class InvestmentContributionCreate(MoneyModel):
+    investment_id: str
+    amount_minor: int = PositiveMoney
+    contribution_date: date
+
+
 class CashEntryCreate(MoneyModel):
     account_id: str
     kind: Literal["income", "expense", "balance_adjustment"]
@@ -269,3 +275,28 @@ class CoverageCreate(BaseModel):
     date_to: date
     status: Literal["complete", "partial", "unknown"]
     note: Optional[str] = None
+
+
+class PlannedCardPurchaseCreate(MoneyModel):
+    card_id: str
+    description: str = Field(..., min_length=1, max_length=240)
+    category_id: Optional[str] = None
+    expected_date: date
+    expected_amount_minor: int = PositiveMoney
+
+
+class InvoicePaymentPlanCreate(BaseModel):
+    account_id: str
+    planned_date: date
+
+
+class BudgetUpsert(MoneyModel):
+    category_id: str
+    month: str = Field(..., regex=r"^\d{4}-(0[1-9]|1[0-2])$")
+    amount_minor: int = Money
+
+
+class BudgetDefaultCreate(MoneyModel):
+    category_id: str
+    effective_from_month: str = Field(..., regex=r"^\d{4}-(0[1-9]|1[0-2])$")
+    amount_minor: int = Money

@@ -1,6 +1,8 @@
 # Controle Financeiro Local
 
-Aplicativo pessoal, manual e local para controle financeiro em português do Brasil e BRL. O frontend React é servido pelo FastAPI na mesma origem; os dados ficam no computador do usuário e o executável Windows não depende de internet, nuvem, banco externo, Python ou Node instalados.
+Aplicativo pessoal e local para controle financeiro em português do Brasil e BRL, com lançamentos manuais e importação CSV/OFX. O frontend React é servido pelo FastAPI na mesma origem e os dados ficam no computador do usuário. O aplicativo funciona sem internet e o executável Windows não exige Python ou Node instalados.
+
+O planejamento reúne recorrências, compras futuras, orçamentos e projeção de caixa. A área de contas e cartões permite fechar, reabrir, planejar e pagar faturas integralmente.
 
 ## Usar no Windows
 
@@ -28,4 +30,8 @@ Para manutenção e colaboração, consulte [CONTRIBUTING.md](CONTRIBUTING.md) e
 
 ## Limites deliberados do MVP
 
-Não há integração bancária, importação CSV/OFX, sincronização, múltiplas moedas, múltiplos usuários, rotativo ou pagamento parcial de fatura. SQLite e backups não são criptografados pelo aplicativo; a proteção do disco e da conta Windows continua necessária.
+Não há múltiplas moedas, múltiplos usuários, rotativo ou pagamento parcial de fatura. SQLite e backups não são criptografados pelo aplicativo; a proteção do disco e da conta Windows continua necessária.
+
+## Importação de extratos
+
+A importação CSV/OFX fica disponível em **Movimentações**; a prévia separa lançamentos novos de possíveis correspondências e a confirmação grava as decisões diretamente.

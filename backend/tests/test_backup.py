@@ -90,7 +90,7 @@ def test_daily_backup_uses_revision_in_filename_and_preserves_older_revision(dom
     result = ensure_daily_backup(domain_db.path, directory)
 
     assert result.path != legacy
-    assert result.path.name.endswith("-0006_remove_category_kind.finbackup")
+    assert result.path.name.endswith("-0011_remove_online_bank_connections.finbackup")
     assert legacy.exists()
 
 

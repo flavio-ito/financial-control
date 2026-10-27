@@ -1,11 +1,11 @@
-param([string]$PackageDirectory = '')
+param([string]$PackageDirectory = '', [string]$SmokeDataDirectory = '')
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $PackageDirectory) { $PackageDirectory = Join-Path $repo 'dist\ControleFinanceiroLocal' }
 $package = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $expectedRoot = [IO.Path]::GetFullPath((Join-Path $repo 'dist')).TrimEnd('\') + '\'
 if (-not ($package + '\').StartsWith($expectedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Pacote fora de dist.' }
-$testData = Join-Path $repo 'build\packaged-smoke-data'
+$testData = if ($SmokeDataDirectory) { [IO.Path]::GetFullPath($SmokeDataDirectory) } else { Join-Path $repo 'build\packaged-smoke-data' }
 $expectedDataRoot = [IO.Path]::GetFullPath((Join-Path $repo 'build')).TrimEnd('\') + '\'
 $resolvedData = [IO.Path]::GetFullPath($testData)
 if (-not ($resolvedData + '\').StartsWith($expectedDataRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Dados de smoke fora de build.' }

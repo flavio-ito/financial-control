@@ -187,6 +187,10 @@ Histórico append-only de ações sobre entidades, com representação anterior,
 
 Registro de backups promovidos ou tentativas de manutenção, com destino lógico, status, checksum, versão do aplicativo, revisão Alembic e versão do formato.
 
+### `import_category_rules`
+
+Regras opcionais de sugestão para importações. Uma expressão na descrição pode ser limitada a uma conta ou cartão e aponta para uma categoria local ativa. A correspondência é exibida na prévia e na revisão; nunca altera um lançamento por si só. Desativar a regra preserva os lançamentos já confirmados.
+
 ## Relações principais
 
 ```text

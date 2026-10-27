@@ -257,7 +257,8 @@ export interface paths {
         /** Edit Category */
         put: operations["edit_category_api_v1_categories__entity_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Category */
+        delete: operations["delete_category_api_v1_categories__entity_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -378,6 +379,23 @@ export interface paths {
         put?: never;
         /** Add Investment Withdrawal */
         post: operations["add_investment_withdrawal_api_v1_investment_withdrawals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/investment-contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Investment Contribution */
+        post: operations["add_investment_contribution_api_v1_investment_contributions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -617,7 +635,8 @@ export interface paths {
         };
         /** Purchase Detail */
         get: operations["purchase_detail_api_v1_purchases__purchase_id__get"];
-        put?: never;
+        /** Update Purchase */
+        put: operations["update_purchase_api_v1_purchases__purchase_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -948,6 +967,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/planned-card-purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Planned Card Purchases */
+        get: operations["planned_card_purchases_api_v1_planned_card_purchases_get"];
+        put?: never;
+        /** Add Planned Card Purchase */
+        post: operations["add_planned_card_purchase_api_v1_planned_card_purchases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/planned-card-purchases/{item_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Planned Card Purchase */
+        post: operations["confirm_planned_card_purchase_api_v1_planned_card_purchases__item_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/planned-card-purchases/{item_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Planned Card Purchase */
+        post: operations["cancel_planned_card_purchase_api_v1_planned_card_purchases__item_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-payment-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoice Payment Plans */
+        get: operations["invoice_payment_plans_api_v1_invoice_payment_plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoices/{invoice_id}/payment-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert Invoice Payment Plan */
+        put: operations["upsert_invoice_payment_plan_api_v1_invoices__invoice_id__payment_plan_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invoice-payment-plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel Invoice Payment Plan */
+        delete: operations["cancel_invoice_payment_plan_api_v1_invoice_payment_plans__plan_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/{month}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Budgets */
+        get: operations["budgets_api_v1_budgets__month__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budgets/{month}/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upsert Budget */
+        put: operations["upsert_budget_api_v1_budgets__month___category_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/budget-defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Budget Default */
+        post: operations["add_budget_default_api_v1_budget_defaults_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/recurrences": {
         parameters: {
             query?: never;
@@ -1188,6 +1361,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/category-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Category Rules */
+        get: operations["list_category_rules_api_v1_integrations_category_rules_get"];
+        put?: never;
+        /** Add Category Rule */
+        post: operations["add_category_rule_api_v1_integrations_category_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/category-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Deactivate Category Rule */
+        delete: operations["deactivate_category_rule_api_v1_integrations_category_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transactions */
+        get: operations["transactions_api_v1_integrations_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/transactions/{transaction_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Row */
+        post: operations["resolve_row_api_v1_integrations_transactions__transaction_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/transfers/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transfer */
+        post: operations["transfer_api_v1_integrations_transfers_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/files/{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import File */
+        post: operations["import_file_api_v1_integrations_files__format__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1231,6 +1507,37 @@ export interface components {
             /** Expected Revision */
             expected_revision: number;
         };
+        /** Body_import_file_api_v1_integrations_files__format__post */
+        Body_import_file_api_v1_integrations_files__format__post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+            /** Account Id */
+            account_id?: string;
+            /** Card Id */
+            card_id?: string;
+            /**
+             * Mapping
+             * @default {}
+             */
+            mapping: string;
+            /** Invert Signs */
+            invert_signs?: boolean;
+            /**
+             * Decisions
+             * @default {}
+             */
+            decisions: string;
+            /**
+             * Edits
+             * @default {}
+             */
+            edits: string;
+            /** Confirmation */
+            confirmation?: string;
+        };
         /** Body_preview_restore_api_v1_backups_restore_preview_post */
         Body_preview_restore_api_v1_backups_restore_preview_post: {
             /**
@@ -1243,6 +1550,24 @@ export interface components {
         BootstrapRequest: {
             /** Token */
             token: string;
+        };
+        /** BudgetDefaultCreate */
+        BudgetDefaultCreate: {
+            /** Category Id */
+            category_id: string;
+            /** Effective From Month */
+            effective_from_month: string;
+            /** Amount Minor */
+            amount_minor: number;
+        };
+        /** BudgetUpsert */
+        BudgetUpsert: {
+            /** Category Id */
+            category_id: string;
+            /** Month */
+            month: string;
+            /** Amount Minor */
+            amount_minor: number;
         };
         /** CardCreate */
         CardCreate: {
@@ -1382,13 +1707,22 @@ export interface components {
             note?: string;
             /** Expected Revision */
             expected_revision: number;
-            /** Reason */
-            reason: string;
         };
         /** CategoryCreate */
         CategoryCreate: {
             /** Name */
             name: string;
+        };
+        /** CategoryRuleInput */
+        CategoryRuleInput: {
+            /** Phrase */
+            phrase: string;
+            /** Category Id */
+            category_id: string;
+            /** Account Id */
+            account_id?: string;
+            /** Card Id */
+            card_id?: string;
         };
         /** CategoryUpdate */
         CategoryUpdate: {
@@ -1465,6 +1799,18 @@ export interface components {
             /** Preview Token */
             preview_token?: string;
         };
+        /** InvestmentContributionCreate */
+        InvestmentContributionCreate: {
+            /** Investment Id */
+            investment_id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Contribution Date
+             * Format: date
+             */
+            contribution_date: string;
+        };
         /** InvestmentCreate */
         InvestmentCreate: {
             /** Account Id */
@@ -1535,6 +1881,16 @@ export interface components {
             /** Preview Token */
             preview_token?: string;
         };
+        /** InvoicePaymentPlanCreate */
+        InvoicePaymentPlanCreate: {
+            /** Account Id */
+            account_id: string;
+            /**
+             * Planned Date
+             * Format: date
+             */
+            planned_date: string;
+        };
         /** InvoicePaymentRequest */
         InvoicePaymentRequest: {
             /** Account Id */
@@ -1590,6 +1946,22 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** PlannedCardPurchaseCreate */
+        PlannedCardPurchaseCreate: {
+            /** Card Id */
+            card_id: string;
+            /** Description */
+            description: string;
+            /** Category Id */
+            category_id?: string;
+            /**
+             * Expected Date
+             * Format: date
+             */
+            expected_date: string;
+            /** Expected Amount Minor */
+            expected_amount_minor: number;
+        };
         /** PurchaseCategoryUpdate */
         PurchaseCategoryUpdate: {
             /** Category Id */
@@ -1638,6 +2010,28 @@ export interface components {
             category_id?: string;
             /** First Invoice Month */
             first_invoice_month?: string;
+        };
+        /** PurchaseUpdate */
+        PurchaseUpdate: {
+            /** Card Id */
+            card_id: string;
+            /** Description */
+            description: string;
+            /**
+             * Purchase Date
+             * Format: date
+             */
+            purchase_date: string;
+            /** Total Minor */
+            total_minor: number;
+            /** Installment Count */
+            installment_count: number;
+            /** Category Id */
+            category_id?: string;
+            /** First Invoice Month */
+            first_invoice_month?: string;
+            /** Expected Revision */
+            expected_revision: number;
         };
         /** RecurrenceCreate */
         RecurrenceCreate: {
@@ -1711,6 +2105,20 @@ export interface components {
             /** Preview Token */
             preview_token?: string;
         };
+        /** ResolutionInput */
+        ResolutionInput: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "ignore" | "keep" | "link_cash" | "link_installment" | "link_payment" | "link_adjustment" | "create_cash" | "create_purchase";
+            /** Target Id */
+            target_id?: string;
+            /** Category Id */
+            category_id?: string;
+            /** Expected Fingerprint */
+            expected_fingerprint: string;
+        };
         /** RestoreConfirm */
         RestoreConfirm: {
             /** Restore Token */
@@ -1770,6 +2178,17 @@ export interface components {
              * Format: date
              */
             effective_date?: string;
+        };
+        /** TransferInput */
+        TransferInput: {
+            /** First Id */
+            first_id: string;
+            /** Second Id */
+            second_id: string;
+            /** First Fingerprint */
+            first_fingerprint: string;
+            /** Second Fingerprint */
+            second_fingerprint: string;
         };
         /** TransferReverse */
         TransferReverse: {
@@ -2481,6 +2900,46 @@ export interface operations {
             };
         };
     };
+    delete_category_api_v1_categories__entity_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                entity_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cards_api_v1_cards_get: {
         parameters: {
             query?: {
@@ -2818,6 +3277,45 @@ export interface operations {
             };
         };
     };
+    add_investment_contribution_api_v1_investment_contributions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvestmentContributionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     edit_investment_api_v1_investments__entity_id__put: {
         parameters: {
             query?: never;
@@ -2912,6 +3410,7 @@ export interface operations {
                 date_to?: string;
                 search?: string;
                 investment_only?: boolean;
+                exclude_investment_yields?: boolean;
                 active_only?: boolean;
             };
             header?: never;
@@ -3453,6 +3952,46 @@ export interface operations {
             };
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_purchase_api_v1_purchases__purchase_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                purchase_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -4206,6 +4745,372 @@ export interface operations {
             };
         };
     };
+    planned_card_purchases_api_v1_planned_card_purchases_get: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_planned_card_purchase_api_v1_planned_card_purchases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlannedCardPurchaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_planned_card_purchase_api_v1_planned_card_purchases__item_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_planned_card_purchase_api_v1_planned_card_purchases__item_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invoice_payment_plans_api_v1_invoice_payment_plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_invoice_payment_plan_api_v1_invoices__invoice_id__payment_plan_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoicePaymentPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_invoice_payment_plan_api_v1_invoice_payment_plans__plan_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                plan_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    budgets_api_v1_budgets__month__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                month: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_budget_api_v1_budgets__month___category_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                month: string;
+                category_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_budget_default_api_v1_budget_defaults_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetDefaultCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     recurrences_api_v1_recurrences_get: {
         parameters: {
             query?: never;
@@ -4546,6 +5451,7 @@ export interface operations {
         parameters: {
             query?: {
                 account_id?: string;
+                date_to?: string;
             };
             header?: never;
             path?: never;
@@ -4762,6 +5668,263 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RestoreConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_category_rules_api_v1_integrations_category_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_category_rule_api_v1_integrations_category_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_category_rule_api_v1_integrations_category_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transactions_api_v1_integrations_transactions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                state?: "review" | "linked" | "ignored";
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_row_api_v1_integrations_transactions__transaction_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                transaction_id: string;
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolutionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_api_v1_integrations_transfers_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path?: never;
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_file_api_v1_integrations_files__format__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string;
+                Origin?: string;
+            };
+            path: {
+                format: "csv" | "ofx";
+            };
+            cookie?: {
+                financas_session?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_file_api_v1_integrations_files__format__post"];
             };
         };
         responses: {

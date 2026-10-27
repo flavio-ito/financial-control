@@ -9,8 +9,7 @@ frontend/dist/
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
-backend/app/static/assets/
-backend/app/static/index.html
+backend/app/static/
 build/
 dist/
 *.spec.bak
